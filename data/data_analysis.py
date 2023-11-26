@@ -47,7 +47,7 @@ print("Total train trees: :", len(train_data))
 print("Total dev trees: :", len(dev_data_task3))
 print("Total test trees: :", len(test_data))
 
-
+"""
 
 print("\n\nFormat for IR:")
 
@@ -103,11 +103,16 @@ print("worldtree_provenance: ", dev_data_task1[0]['meta']['worldtree_provenance'
 print("add_list: ", dev_data_task1[0]['meta']['add_list'])
 print("delete_list: ", dev_data_task1[0]['meta']['delete_list'])
 
-
+"""
 
 print("\n\nFormat for training:")
 
 print("\nTask 2 data\n")
+
+for tree in dev_data_task2:
+    if tree['depth_of_proof'] > 1:
+        dev_data_task2 = [tree]
+        break
 
 print(dev_data_task2[0].keys())
 # dict_keys(['id', 'context', 'question', 'answer', 'hypothesis', 'proof', 'full_text_proof', 'depth_of_proof', 'length_of_proof', 'meta'])

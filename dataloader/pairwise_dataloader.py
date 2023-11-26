@@ -1,3 +1,9 @@
+import json
+import csv
+from pathlib import Path
+
+import pandas as pd
+
 import torch
 from torch.utils.data import Dataset, DataLoader
 
@@ -11,12 +17,26 @@ from torch.utils.data import Dataset, DataLoader
 * Distractors are sampled within task2's distractor data
 """
 
+task2_all_files = {
+        'dev':"../data/task_2/dev.jsonl",
+        'train':"../data/task_2/train.jsonl",
+        'test':"../data/task_2/test.jsonl"
+    }
+
+
 class TripletDataset(Dataset):
     """ Stores triplets of (hypo, pos, neg) string tuples """
     def __init__(self, triplet_file):
-        # read json
+        # read file
+        df = read_tsv(triplet_file)
 
-        self.triplets = [list of tuples]
+        # check shape (N * 3)
+        if len(df.shape)!=2 or df.shape[1]!=3:
+            raise Exception("Format Error: tsv file has incorrect dimensions")
+
+        # convert to list of tuples
+        tuples = list(df.itertuples(index=False, name=None))
+        self.triplets = tuples
 
     def __len__(self):
         return len(self.triplets)
@@ -50,7 +70,76 @@ dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
 ## ---------- Pairwise data preprocess ----------
 
-def generate_pairwise_data(stage='train', format='triplet' positive='adjacent', negative='cross_join')
+def generate_pairwise_data(stage='train', format='triplet', positive='adjacent', negative='cross_join'):
+    """ Create pairwise training set; save to tsv file """
+    # stage: train, dev, test
+    # positive: adjacent, root_leaf
+    # negative: cross_join (from distractors)
+
+    file = task2_all_files[stage]
+    data = load_jsonl(file)
+
+    result = []
+    result_file_name = "../data/processed_pairwise/" + "pairwise_data_" + "_".join([stage, format, positive, negative]) + ".tsv"
+
+    # create pairs for individual proof trees
+    for tree in data:
+        # ---- for each tree ----
+        hypothesis = tree["hypothesis"]
+        sentences = {"hypothesis":hypothesis}
+        sentences.update(tree["meta"]["triples"])
+        sentences.update(tree["meta"]["intermediate_conclusions"])
+        proof = tree["proof"]
+        distractor_idx = tree["meta"]["distractors"]
+
+        if negative == 'cross_join':
+            # --- negative : cross_join ---
+            pos_list = []
+            neg_list = []
+
+            for dis in distractor_idx:
+                neg_list.append(sentences[dis])
+
+
+            if positive == 'adjacent':
+                # -- positive : adjacent nodes --
+                steps = proof.split(";")
+                for step in steps:
+                    if not step or step.isspace():
+                        continue
+                    # stripe int text
+                    step = step.split(":")[0]
+                    advance = step.split("->")
+                    node = advance[1].strip()
+                    children = advance[0].split("&")
+                    for child in children:
+                        child = child.strip()
+                        if not child:
+                            continue
+                        # construct node, child pair
+                        pos_list.append([sentences[node], sentences[child]])
+
+
+            elif positive == 'root_leaf':
+                # -- positive : root-leaf pairs --
+                tokens = proof.split()
+                premise_idx = [token for token in tokens if token.startswith("sent")]
+
+                premises = [sentences[idx] for idx in premise_idx]
+
+                for premise in premises:
+                    pos_list.append([hypothesis, premise])
+
+
+            # --- append cross-joined samples to result ---
+            for pair in pos_list:
+                for neg in neg_list:
+                    result.append( pair + [neg] )
+
+
+    # write list of lists(tuples) into tsv file
+    write_tsv(result_file_name, result)
+
 
 # TODO:
 # Taks2 data
@@ -67,5 +156,35 @@ def generate_pairwise_data(stage='train', format='triplet' positive='adjacent', 
 # Negative premise from all sentences - active entailment
 
 
+# jsonl file loader
+def load_jsonl(file):
+    data = []
+    file_path = Path(__file__).parent / file
+    with open(file_path, 'r') as f:
+        for line in f:
+            data.append(json.loads(line))
+    return data
 
+# tsv file operations
+def write_tsv(file, data):
+    file_path = Path(__file__).parent / file
+    with open(file_path, 'w') as f:
+        tsv_writer = csv.writer(f, delimiter='\t')
+        tsv_writer.writerows(data)
+
+def read_tsv(file):
+    file_path = Path(__file__).parent / file
+    df = pd.read_csv(file_path, delimiter='\t', header=None)
+    return df
+
+
+
+if __name__ == "__main__":
+    #generate_pairwise_data(stage="train", positive="adjacent")
+    #generate_pairwise_data(stage="dev", positive="adjacent")
+    #generate_pairwise_data(stage="test", positive="adjacent")
+    #generate_pairwise_data(stage="train", positive="root_leaf")
+    #generate_pairwise_data(stage="dev", positive="root_leaf")
+    #generate_pairwise_data(stage="test", positive="root_leaf")
+    data = TripletDataset("../data/processed_pairwise/pairwise_data_train_triplet_root_leaf_cross_join.tsv")
 
