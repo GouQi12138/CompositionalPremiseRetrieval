@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from pathlib import Path
 import numpy as np
 
 
@@ -12,7 +13,7 @@ import numpy as np
 # 3) dev
 # 4) test
 
-task1_all_files = {'dev':"data/task_1/dev.jsonl", 'train':"data/task_1/train.jsonl", 'test':"data/task_1/test.jsonl"}
+task1_all_files = {'dev':"../data/task_1/dev.jsonl", 'train':"../data/task_1/train.jsonl", 'test':"../data/task_1/test.jsonl"}
 
 
 # --------- Evaluation data loader ----------
@@ -67,8 +68,9 @@ def parse_labels(problem_list, result_dict, core_concept=False):
 
 
 # jsonl file loader
-def load_jsonl(file_path):
+def load_jsonl(file):
     data = []
+    file_path = Path(__file__).parent / file
     with open(file_path, 'r') as f:
         for line in f:
             data.append(json.loads(line))

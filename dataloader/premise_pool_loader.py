@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from pathlib import Path
 import numpy as np
 
 
@@ -15,9 +16,9 @@ Used for indexing (tf-idf, FAISS) IR
 # 3) * Premises + distractors used in all data
 
 
-worldtree_file = "data/worldtree_corpus_sentences_extended.json"
+worldtree_file = "../data/worldtree_corpus_sentences_extended.json"
 # task1 data provides the ground-truth used premises
-task1_all_files = ["data/task_1/dev.jsonl", "data/task_1/train.jsonl", "data/task_1/test.jsonl"]
+task1_all_files = ["../data/task_1/dev.jsonl", "../data/task_1/train.jsonl", "../data/task_1/test.jsonl"]
 
 
 # --------- Premise pool loader ----------
@@ -52,8 +53,9 @@ def load_premise_pool(source='worldtree'):
 
 
 # jsonl file loader
-def load_jsonl(file_path):
+def load_jsonl(file):
     data = []
+    file_path = Path(__file__).parent / file
     with open(file_path, 'r') as f:
         for line in f:
             data.append(json.loads(line))

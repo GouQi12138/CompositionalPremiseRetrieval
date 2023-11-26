@@ -1,27 +1,28 @@
 import json
 import os
 import sys
+from pathlib import Path
 import numpy as np
 
 
 # Analyze the files in entailment_trees_emnlp2021_data_v3
 
+worldtree_file = "./worldtree_corpus_sentences_extended.json"
 
-worldtree_file = "data/worldtree_corpus_sentences_extended.json"
+task3_all_file = "./task_3/all.jsonl"
+task3_train_file = "./task_3/train.jsonl"
+task3_dev_file = "./task_3/dev.jsonl"
+task3_test_file = "./task_3/test.jsonl"
 
-task3_all_file = "data/task_3/all.jsonl"
-task3_train_file = "data/task_3/train.jsonl"
-task3_dev_file = "data/task_3/dev.jsonl"
-task3_test_file = "data/task_3/test.jsonl"
-
-task1_dev_file = "data/task_1/dev.jsonl"
-task2_dev_file = "data/task_2/dev.jsonl"
+task1_dev_file = "./task_1/dev.jsonl"
+task2_dev_file = "./task_2/dev.jsonl"
 
 
 # load the jsonl file
 def load_jsonl(file_path):
     data = []
-    with open(file_path, 'r') as f:
+    path = Path(__file__).parent / file_path
+    with open(path, 'r') as f:
         for line in f:
             data.append(json.loads(line))
     return data
