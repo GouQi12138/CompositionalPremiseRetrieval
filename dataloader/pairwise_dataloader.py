@@ -24,6 +24,50 @@ task2_all_files = {
     }
 
 
+"""
+class PairwiseDataset(Dataset):
+    def __init__(self, premise_trees, hypotheses):
+        self.premise_trees = premise_trees
+        self.hypotheses = hypotheses
+
+    def __len__(self):
+        return len(self.premise_trees)
+
+    def __getitem__(self, idx):
+        premise_tree = self.premise_trees[idx]
+        hypothesis = self.hypotheses[idx]
+        return premise_tree, hypothesis
+
+premise_trees = [...]  # List of premise trees
+hypotheses = [...]  # List of hypotheses
+
+dataset = PairwiseDataset(premise_trees, hypotheses)
+dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+"""
+
+class PairwiseDataset(Dataset):
+    """ Stores (hypothesis, +/-premise, 1/0) pairs """
+    def __init__(self, triplet_file):
+        # read file
+        df = read_tsv(triplet_file_file)
+
+        # check shape (N * 3)
+        if len(df.shape)!=2 or df.shape[1]!=3:
+            raise Exception("Format Error: tsv file has incorrect dimensions")
+
+        # convert to list of pairs
+        tuples = list(df.itertuples(index=False, name=None))
+        pairs = [(t[0], t[1], 1) for t in tuples] + [(t[0], t[2], 0) for t in tuples]
+
+        self.contrastive_pairs = pairs
+
+    def __len__(self):
+        return len(self.contrastive_pairs)
+
+    def __getitem__(self, idx):
+        return self.contrastive_pairs[idx]
+
+
 class TripletDataset(Dataset):
     """ Stores triplets of (hypo, pos, neg) string tuples """
     def __init__(self, triplet_file):
@@ -44,28 +88,6 @@ class TripletDataset(Dataset):
     def __getitem__(self, idx):
         return self.triplets[idx]
 
-
-"""
-
-class PairwiseDataset(Dataset):
-    def __init__(self, premise_trees, hypotheses):
-        self.premise_trees = premise_trees
-        self.hypotheses = hypotheses
-
-    def __len__(self):
-        return len(self.premise_trees)
-
-    def __getitem__(self, idx):
-        premise_tree = self.premise_trees[idx]
-        hypothesis = self.hypotheses[idx]
-        return premise_tree, hypothesis
-
-premise_trees = [...]  # List of premise trees
-hypotheses = [...]  # List of hypotheses
-
-dataset = PairwiseDataset(premise_trees, hypotheses)
-dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
-"""
 
 
 ## ---------- Pairwise data preprocess ----------
