@@ -1,0 +1,52 @@
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+
+import torch
+
+
+class Index:
+
+    def __init__(self, hypo_to_premises, premise_pool, model):
+
+        # construct N x dim premise table
+        # construct hypo to which indices in table are matching
+        self._index = []
+        self._hypo_to_indices = {}
+        hypotheses = set()
+        premises = []
+        idx = 0
+        model.eval()
+        for h in hypo_to_premises:
+            if h in hypotheses:
+                continue
+            hypotheses.add(h)
+            self._hypo_to_indices[h] = set()
+            for p in hypo_to_premises[h]:
+                if p in premises:
+                    self._hypo_to_indices[h].add(premises.index(p))
+                    continue
+                premises.append(p)
+                with torch.no_grad():
+                    self._index.append(model.encode(p))
+                self._hypo_to_indices[h].add(idx)
+                idx += 1
+        premises = set(premises)
+        for p in premise_pool:
+            if p in premises:
+                continue
+            premises.add(p)
+            with torch.no_grad():
+                self._index.append(model.encode(p))
+        self._index = np.stack(self._index)
+
+    def get_gt_premises(self, query, one_hot=False):
+        gt_premise_idx = np.array(list(self._hypo_to_indices[query]))
+        if not one_hot:
+            return gt_premise_idx
+        gt_premise_idx_one_hot = np.zeros((self._index.shape[0]))
+        gt_premise_idx_one_hot[gt_premise_idx] = 1
+        return gt_premise_idx_one_hot
+
+    def get_similarity_scores(self, query_embedding):
+        # Returns matrix 1 x embedding_dim
+        return cosine_similarity(np.expand_dims(query_embedding, axis=0), self._index)
