@@ -6,7 +6,9 @@ from prettytable import PrettyTable
 from sklearn.metrics import average_precision_score, ndcg_score
 from sentence_transformers import SentenceTransformer
 import torch
+from torch.utils.data import DataLoader
 
+from dataloader.pairwise_dataloader import PairwiseDataset
 from dataloader.premise_evaluation_loader import load_target_dict
 from dataloader.premise_pool_loader import load_premise_pool
 from index import *
@@ -52,38 +54,42 @@ def gen_labels_and_scores(hypo_to_premises, index, model):
 ### EVALUATION FUNCTIONS ###
 
 
-def k_at_recall(premises, predictions, recall_level=1):
+def k_at_recall(premises, index, scores, recall_level=1):
     # Recall is the number of relevant documents retrieved divided by the total number of relevant documents
     # Relevant documents are those that are in the ground truth
     # Retrieved documents are those that are in the top K samples
-    items_left = len(premises)
-    k = 0
-    for idx in predictions:
-        k += 1
-        if idx in premises:
-            items_left -= 1
-        if items_left == 0:
-            return k
-        
-    raise Exeption("Not all premises are retrieved")
-    return -1
+    k_at_recall_list = []
+    for i, query in enumerate(hypo_to_premises):
+        gt_premise_indices = index.get_gt_premises(query)
+        query_score = scores[i]
+        top_ind = np.argpartition(query_score, -50)[-50:]
+        sorted_top_ind = top_ind[np.argsort(query_score[top_ind])]
+        num_relevant_docs = np.count_nonzero(gt_premise_indices)
+        num_retrieved_docs = 0
+        for j in range(50):
+            if sorted_top_ind[j] in gt_premise_indices:
+                num_retrieved_docs += 1
+            if num_retrieved_docs/num_relevant_docs >= recall_level:
+                k_at_recall_list.append(j+1)
+                break
+    k_at_recall = sum(k_at_recall_list)/len(k_at_recall_list)
+    return k_at_re
 
-def compute_precision_at_full_recall(hypo_to_premises, faissIndex):
+
+def compute_precision_at_full_recall(hypo_to_premises, gt_labels, scores):
     # Precision at full recall is the average of the precision values at each recall threshold
     # Recall threshold is the number of relevant documents
     # Precision is the number of relevant documents divided by the number of retrieved documents
     # Relevant documents are those that are in the ground truth
     # Retrieved documents are those that are in the top K samples
     precision_at_full_recall_list = []
-    for h in hypo_to_premises:
-        prem_label = faissIndex._hypo_to_indices[h]
-        prem_pred = faissIndex.retrieve_index(h, k=len(faissIndex._premise_pool))
-
-        num_relevant_docs = len(hypo_to_premises[h])
-        num_retrieved_docs = k_at_recall(prem_label, prem_pred)
+    for i in range(gt_labels.shape[0]):
+        num_relevant_docs = np.count_nonzero(gt_labels[i].astype(int))
+        num_retrieved_docs = np.count_nonzero(scores[i])
         precision_at_full_recall_list.append(num_relevant_docs/num_retrieved_docs)
     precision_at_full_recall = sum(precision_at_full_recall_list)/len(precision_at_full_recall_list)
     return precision_at_full_recall
+    # NOT DONE or tested
 
 
 def compute_hit_at_k(hypo_to_premises, index, scores):
@@ -175,12 +181,10 @@ def compute_hit_at_k_v2(hypo_to_premises, index, scores):
     return hit_10, hit_20, hit_30, hit_40, hit_50
 
 
-def evaluate_pretrained_model(model, index, hypo_to_premises, faissIndex):
+def evaluate_pretrained_model(model, index, hypo_to_premises):
 
     model.eval()
     gt_labels, scores = gen_labels_and_scores(hypo_to_premises, index, model)
-
-    prec_full_rec = compute_precision_at_full_recall(hypo_to_premises, faissIndex)
 
     map_ = average_precision_score(gt_labels, scores, average="samples")
     if args.debug:
@@ -195,30 +199,69 @@ def evaluate_pretrained_model(model, index, hypo_to_premises, faissIndex):
 
     hit_10, hit_20, hit_30, hit_40, hit_50 = compute_hit_at_k_v2(hypo_to_premises, index, scores)
 
-    return prec_full_rec, map_, ndcg, ndcg_10, ndcg_20, ndcg_30, ndcg_40, ndcg_50, hit_10, hit_20, hit_30, hit_40, hit_50
+    return map_, ndcg, ndcg_10, ndcg_20, ndcg_30, ndcg_40, ndcg_50, hit_10, hit_20, hit_30, hit_40, hit_50
 
 
-def evaluate(model):
-    hypo_to_premises = load_target_dict("test")
-    premise_pool = load_premise_pool()
+def train_one_epoch(model, train_dataloader, optimizer):
+    model.train()
+    train_loss = 0
+    for i, batch in enumerate(train_dataloader):
+        query, premise, target = batch
+        optimizer.zero_grad()
+        outputs = model(query)
+        # use index to get premise embedding and use that with outputs embedding to compute loss along with target
+        loss = SCL()
+        loss.backward()
+        optimizer.step()
+        train_loss += loss.item()
+    train_loss /= i + 1
+    return train_loss
 
-    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    print("Start Indexing...", current_time)
-    index = Index(hypo_to_premises, premise_pool, model)
-    faissIndex = FaissIndex(hypo_to_premises, premise_pool, model)
-    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    print("Indexing Done", current_time)
-    
-    res = evaluate_pretrained_model(model, index, hypo_to_premises, faissIndex)
-    tab = PrettyTable()
-    tab.field_names = ["Prec@Full Recall", "MAP", "NDCG", "NDCG@10", "NDCG@20", "NDCG@30", "NDCG@40", "NDCG@50", "Hit@10", "Hit@20", "Hit@30", "Hit@40", "Hit@50"]
-    tab.add_row(["{0:0.3f}".format(i) for i in res])
-    print(tab)
+
+def val_one_epoch(model, val_dataloader):
+    model.eval()
+    val_loss = 0
+    with torch.no_grad():
+        for i, batch in enumerate(val_dataloader):
+            query, premise, target = batch
+            outputs = model(query)
+            # use index to get premise embedding and use that with outputs embedding to compute loss along with target
+            loss = SCL()
+            val_loss += loss.item()
+    val_loss /= i + 1
+    return val_loss
+
+
+def save_model_if_better(best_val_loss, val_loss, model, save_dir):
+    if val_loss > best_val_loss:
+        return best_val_loss
+    torch.save(model.state_dict(), save_dir)
+    return val_loss
+
+
+def fine_tune_model(model, train_dataloader, val_dataloader, args):
+    if not args.save_dir:
+        save_dir = args.model
+    # freeze half of the model's weights
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
+    best_val_loss = float("inf")
+    for epoch in tqdm(range(args.epochs)):
+        train_loss = train_one_epoch(model, train_dataloader, optimizer)
+        val_loss = val_one_epoch(model, val_dataloader)
+        best_val_loss = save_model_if_better(best_val_loss, val_loss, model, save_dir)
+        save_loss_curves()
+    return
 
 
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SentenceTransformer(args.model).to(device)
+    train_dataset = PairwiseDataset(args.train_data)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    val_dataset = PairwiseDataset(args.val_data)
+    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+    model = fine_tune_model(model, train_dataloader, val_dataloader, args)
+    model.load_state_dict(torch.load(path_to_best_weights))
     evaluate(model)
 
 
@@ -228,6 +271,12 @@ if __name__ == "__main__":
                         help="pre-trained model \
                             (best general purpose model: all-mpnet-base-v2 (https://huggingface.co/sentence-transformers/all-mpnet-base-v2); \
                             best semantic search model: multi-qa-mpnet-base-dot-v1 (https://huggingface.co/sentence-transformers/multi-qa-mpnet-base-dot-v1))")
+    parser.add_argument("--train-data", type=str, default="data/processed_pairwise/pairwise_data_train_triplet_root_leaf_cross_join.tsv")
+    parser.add_argument("--val-data", type=str, default="data/processed_pairwise/pairwise_data_dev_triplet_root_leaf_cross_join.tsv")
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--epochs", type=int, default=5)
+    parser.add_argument("--learning-rate", type=float, default=1e-5)
+    parser.add_argument("--save-dir", type=str, help="directory to save best model weights in (default is what `--model` is set as)")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
