@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 from prettytable import PrettyTable
 from sklearn.metrics import average_precision_score, ndcg_score
-from sentence_transformers import SentenceTransformer, util
+from sentence_transformers import SentenceTransformer
 import torch
 
 from dataloader.premise_evaluation_loader import load_target_dict
@@ -11,25 +11,25 @@ from dataloader.premise_pool_loader import load_premise_pool
 from index import Index
 
 
-def example_inference(model):
-    # Follows https://www.sbert.net/docs/pretrained_models.html
-    query_embedding = model.encode("How big is London")
-    passage_embedding = model.encode(["London has 9,787,426 inhabitants at the 2011 census",
-                                      "London is known for its financial district"])
-    print("Similarity:", util.dot_score(query_embedding, passage_embedding))  # Assume embeddings are normalized
+### DEBUG FUNCTIONS ###
 
 
-def build_index(hypo_to_premises, model):
-    # Generate embeddings for each hypothesis/premise
-    # Construct index: https://github.com/facebookresearch/faiss
-    # Not sure if faiss will really be faster than if I just did numpy broadcasting
-    return
+def check_map(gt_labels, scores):
+    print("GT labels:")
+    print(gt_labels)
+    print("Scores:")
+    print(scores)
+    print("Scores of gt_labels:")
+    print(scores[0][np.nonzero(gt_labels[0].astype(int))])
+    print(scores[1][np.nonzero(gt_labels[1].astype(int))])
+    print("Ranked scores")
+    print(np.sort(scores)[:,-40:])
 
 
-def evaluate_pretrained_model(model, index, hypo_to_premises):
+### HELPER FUNCTIONS ###
 
-    model.eval()
 
+def gen_labels_and_scores(hypo_to_premises, index, model):
     gt_labels = []
     scores = []
     for i, query in enumerate(hypo_to_premises):
@@ -44,43 +44,12 @@ def evaluate_pretrained_model(model, index, hypo_to_premises):
                 break
     gt_labels = np.stack(gt_labels)
     scores = np.concatenate(scores)
-    if args.debug:
-        print("GT labels:")
-        print(gt_labels)
-        print("Scores:")
-        print(scores)
-        print("Scores of gt_labels:")
-        print(scores[0][np.nonzero(gt_labels[0].astype(int))])
-        print(scores[1][np.nonzero(gt_labels[1].astype(int))])
-        # print(scores[np.nonzero(gt_labels.astype(int))])
-        # print(np.nonzero(gt_labels.astype(int)))
-        # for i, q in enumerate(np.nonzero(gt_labels.astype(int))):
-            # print(scores[i][q])
-        print("Ranked scores")
-        print(np.sort(scores)[:,-40:])
-    map_ = average_precision_score(gt_labels, scores, average="samples")  # task 3: 0.4410345285493711
-    # map_ = average_precision_score(gt_labels, scores, average="micro")  # task 3: 0.3607382458899806
-    # map_ = average_precision_score(gt_labels, scores, average="macro")  # task 3: 0.5974309238661698
+    return gt_labels, scores
 
-    # MAP
-    # Precision = TP / (TP + FP)
-    # Recall
-    # AP = 1/(TP + FN) * sum over all premises (precision @ k * relevance of kth document)
-    # MAP = average AP over all queries
-    # Use https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html
 
-    # NDCG (everything, @ 10, 20, 30, 40, 50)
-    # Use https://scikit-learn.org/stable/modules/generated/sklearn.metrics.ndcg_score.html
-    ndcg = ndcg_score(gt_labels, scores)
-    ndcg_10 = ndcg_score(gt_labels, scores, k=10)
-    ndcg_20 = ndcg_score(gt_labels, scores, k=20)
-    ndcg_30 = ndcg_score(gt_labels, scores, k=30)
-    ndcg_40 = ndcg_score(gt_labels, scores, k=40)
-    ndcg_50 = ndcg_score(gt_labels, scores, k=50)
-
-    # Hit @ K
-    # In top K samples, count how many are correct premises, divide by total number of premises for the query. Something 
-    # like https://stackoverflow.com/questions/66260676/pytorch-calculate-hit-ratio-of-predictions-on-batch-level
+def compute_hit_at_k(hypo_to_premises, index, scores):
+    # In top K samples, count how many are correct premises, divide by total number of correct premises
+    # XXX: Unsure how Hit@K is supposed to be calculated
     hit_10_list = []
     hit_20_list = []
     hit_30_list = []
@@ -107,7 +76,7 @@ def evaluate_pretrained_model(model, index, hypo_to_premises):
                     num_matches_20 += 1
                 if j > 39:
                     num_matches_10 += 1
-        hit_10_list.append(num_matches_10/len(gt_premise_indices))  # XXX: Is this correct?
+        hit_10_list.append(num_matches_10/len(gt_premise_indices))
         hit_20_list.append(num_matches_20/len(gt_premise_indices))
         hit_30_list.append(num_matches_30/len(gt_premise_indices))
         hit_40_list.append(num_matches_40/len(gt_premise_indices))
@@ -120,6 +89,26 @@ def evaluate_pretrained_model(model, index, hypo_to_premises):
     hit_30 = sum(hit_30_list)/len(hit_30_list)
     hit_40 = sum(hit_40_list)/len(hit_40_list)
     hit_50 = sum(hit_50_list)/len(hit_50_list)
+    return hit_10, hit_20, hit_30, hit_40, hit_50
+
+
+def evaluate_pretrained_model(model, index, hypo_to_premises):
+
+    model.eval()
+    gt_labels, scores = gen_labels_and_scores(hypo_to_premises, index, model)
+
+    map_ = average_precision_score(gt_labels, scores, average="samples")
+    if args.debug:
+        check_map(gt_labels, scores)
+
+    ndcg = ndcg_score(gt_labels, scores)
+    ndcg_10 = ndcg_score(gt_labels, scores, k=10)
+    ndcg_20 = ndcg_score(gt_labels, scores, k=20)
+    ndcg_30 = ndcg_score(gt_labels, scores, k=30)
+    ndcg_40 = ndcg_score(gt_labels, scores, k=40)
+    ndcg_50 = ndcg_score(gt_labels, scores, k=50)
+
+    hit_10, hit_20, hit_30, hit_40, hit_50 = compute_hit_at_k(hypo_to_premises, index, scores)
 
     return map_, ndcg, ndcg_10, ndcg_20, ndcg_30, ndcg_40, ndcg_50, hit_10, hit_20, hit_30, hit_40, hit_50
 
@@ -137,10 +126,6 @@ def main(args):
     tab.field_names = ["MAP", "NDCG", "NDCG@10", "NDCG@20", "NDCG@30", "NDCG@40", "NDCG@50", "Hit@10", "Hit@20", "Hit@30", "Hit@40", "Hit@50"]
     tab.add_row(["{0:0.3f}".format(i) for i in res])
     print(tab)
-    # Use SCL as loss function
-    # Train SBERT as a single encoder (only query encoder is updated during fine-tuning)
-    # Evaluate validation
-    # Evaluate metrics
 
 
 if __name__ == "__main__":
