@@ -45,6 +45,21 @@ def load_premise_pool(source='worldtree'):
     else:
         # default to worldtree corpus
         premise_dict = load_worldtree_corpus()
+
+        #"""
+        for key in premise_dict:
+            sent = premise_dict[key]
+            # to lower case
+            # replace \\s+ with single space
+            # add space in front of 's
+            # replace ; with /
+            sent = sent.lower()
+            sent = sent.replace("'s", " 's")
+            sent = sent.replace(";", " / ")
+            sent = ' '.join(sent.split())
+            premise_dict[key] = sent
+        #"""
+
         premise_pool = list(premise_dict.values())
 
     return premise_pool

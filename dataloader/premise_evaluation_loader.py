@@ -49,12 +49,12 @@ def parse_labels(problem_list, result_dict, core_concept=False):
 
         if core_concept:
             for premise in tree['meta']['core_concepts']:
-                premises.append(premise)
+                premises.append(process_string(premise))
 
         else:
             for sentType, premise in tree['meta']['triples'].items():
                 if sentType.startswith("sent"):
-                    premises.append(premise)
+                    premises.append(process_string(premise))
 
 
         if hypothesis not in result_dict:
@@ -65,6 +65,17 @@ def parse_labels(problem_list, result_dict, core_concept=False):
 
 # ----------------------------------------
 
+
+def process_string(sent):
+    # to lower case
+    # replace \\s+ with single space
+    # add space in front of 's
+    # replace ; with /
+    sent = sent.lower()
+    sent = sent.replace("'s", " 's")
+    sent = sent.replace(";", " / ")
+    sent = ' '.join(sent.split())
+    return sent
 
 
 # jsonl file loader

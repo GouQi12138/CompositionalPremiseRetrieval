@@ -1,4 +1,5 @@
 import argparse
+import time
 
 import numpy as np
 from prettytable import PrettyTable
@@ -8,7 +9,8 @@ import torch
 
 from dataloader.premise_evaluation_loader import load_target_dict
 from dataloader.premise_pool_loader import load_premise_pool
-from index import Index
+from index import *
+import time
 
 
 ### DEBUG FUNCTIONS ###
@@ -48,6 +50,44 @@ def gen_labels_and_scores(hypo_to_premises, index, model):
 
 
 ### EVALUATION FUNCTIONS ###
+
+
+def k_at_recall(premises, index, scores, recall_level=1):
+    # Recall is the number of relevant documents retrieved divided by the total number of relevant documents
+    # Relevant documents are those that are in the ground truth
+    # Retrieved documents are those that are in the top K samples
+    k_at_recall_list = []
+    for i, query in enumerate(hypo_to_premises):
+        gt_premise_indices = index.get_gt_premises(query)
+        query_score = scores[i]
+        top_ind = np.argpartition(query_score, -50)[-50:]
+        sorted_top_ind = top_ind[np.argsort(query_score[top_ind])]
+        num_relevant_docs = np.count_nonzero(gt_premise_indices)
+        num_retrieved_docs = 0
+        for j in range(50):
+            if sorted_top_ind[j] in gt_premise_indices:
+                num_retrieved_docs += 1
+            if num_retrieved_docs/num_relevant_docs >= recall_level:
+                k_at_recall_list.append(j+1)
+                break
+    k_at_recall = sum(k_at_recall_list)/len(k_at_recall_list)
+    return k_at_re
+
+
+def compute_precision_at_full_recall(hypo_to_premises, gt_labels, scores):
+    # Precision at full recall is the average of the precision values at each recall threshold
+    # Recall threshold is the number of relevant documents
+    # Precision is the number of relevant documents divided by the number of retrieved documents
+    # Relevant documents are those that are in the ground truth
+    # Retrieved documents are those that are in the top K samples
+    precision_at_full_recall_list = []
+    for i in range(gt_labels.shape[0]):
+        num_relevant_docs = np.count_nonzero(gt_labels[i].astype(int))
+        num_retrieved_docs = np.count_nonzero(scores[i])
+        precision_at_full_recall_list.append(num_relevant_docs/num_retrieved_docs)
+    precision_at_full_recall = sum(precision_at_full_recall_list)/len(precision_at_full_recall_list)
+    return precision_at_full_recall
+    # NOT DONE or tested
 
 
 def compute_hit_at_k(hypo_to_premises, index, scores):
@@ -160,14 +200,21 @@ def evaluate_pretrained_model(model, index, hypo_to_premises):
     return map_, ndcg, ndcg_10, ndcg_20, ndcg_30, ndcg_40, ndcg_50, hit_10, hit_20, hit_30, hit_40, hit_50
 
 
-def main(args):
 
+def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = SentenceTransformer(args.model).to(device)
     hypo_to_premises = load_target_dict("test")
     premise_pool = load_premise_pool()
+
+    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    print("Start Indexing...", current_time)
+    #index = FaissIndex(hypo_to_premises, premise_pool, model)
     index = Index(hypo_to_premises, premise_pool, model)
+    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    print("Indexing Done", current_time)
+    
     res = evaluate_pretrained_model(model, index, hypo_to_premises)
     tab = PrettyTable()
     tab.field_names = ["MAP", "NDCG", "NDCG@10", "NDCG@20", "NDCG@30", "NDCG@40", "NDCG@50", "Hit@10", "Hit@20", "Hit@30", "Hit@40", "Hit@50"]
