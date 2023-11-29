@@ -4,8 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 
 
 """ Dataloader for constrastive learning on pairwise examples.
@@ -49,7 +48,7 @@ class PairwiseDataset(Dataset):
     """ Stores (hypothesis, +/-premise, 1/0) pairs """
     def __init__(self, triplet_file):
         # read file
-        df = read_tsv(triplet_file_file)
+        df = read_tsv(triplet_file)
 
         # check shape (N * 3)
         if len(df.shape)!=2 or df.shape[1]!=3:
