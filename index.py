@@ -14,9 +14,10 @@ class FaissIndex:
     def __init__(self, hypo_to_premises, premise_pool, model):
         # construct N x dim premise table
         # construct hypo to which indices in table are matching
-        self._index = []            # index list from premise_pool
+        self._index = []            # index table from premise_pool
         self._hypo_to_indices = {}  # map hypothesis to positive indices
         self._premise_pool = premise_pool
+        self._model = model
 
         hypotheses = set()
         model.eval()
@@ -33,12 +34,12 @@ class FaissIndex:
                 if p not in self._premise_pool:
                     self._premise_pool.append(p)
 
-                idx = premise_pool.index(p)
+                idx = self._premise_pool.index(p)
 
                 self._hypo_to_indices[h].add(idx)
 
         # construct index pool
-        self._premise_embeddings = model.encode(premise_pool)
+        self._premise_embeddings = model.encode(self._premise_pool)
         self._embed_dim = self._premise_embeddings.shape[1]
         self._index = faiss.IndexFlatIP(self._embed_dim)
         faiss.normalize_L2(self._premise_embeddings)
@@ -49,14 +50,14 @@ class FaissIndex:
         faiss.normalize_L2(embeddings)
         self._index.add(embeddings)
 
-    def retrieve_index(query, k=5):
+    def retrieve_index(self, query, k=5):
         # find index of query in premise_pool
-        p_emb = np.array([model.encode(query)])
+        p_emb = np.array([self._model.encode(query)])
         faiss.normalize_L2(p_emb)
         distances, ann = self._index.search(p_emb, k=k)
-        idx = ann[0][0]
-        sent = self._premise_pool[idx]
-        return idx, sent
+        idx = ann[0]
+        #sent = self._premise_pool[idx]
+        return idx#, sent
 
 
 

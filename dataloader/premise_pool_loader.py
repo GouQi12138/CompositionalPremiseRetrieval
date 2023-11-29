@@ -60,7 +60,7 @@ def load_premise_pool(source='worldtree'):
             premise_dict[key] = sent
         #"""
 
-        premise_pool = list(premise_dict.values())
+        premise_pool = list(set(premise_dict.values()))
 
     return premise_pool
 # ----------------------------------------
