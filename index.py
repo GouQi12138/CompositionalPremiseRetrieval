@@ -44,7 +44,6 @@ class FaissIndex:
         self._index = faiss.IndexFlatIP(self._embed_dim)
         faiss.normalize_L2(self._premise_embeddings)
         self._index.add(self._premise_embeddings)
-        
 
     def train_cosine_sim(self, embeddings):
         faiss.normalize_L2(embeddings)
@@ -60,7 +59,6 @@ class FaissIndex:
         return idx#, sent
 
 
-
 class Index:
 
     def __init__(self, hypo_to_premises, premise_pool, model):
@@ -69,6 +67,7 @@ class Index:
         # construct hypo to which indices in table are matching
         self._index = []
         self._hypo_to_indices = {}
+        self._premise_to_embedding = {}
         hypotheses = set()
         premises = []
         idx = 0
@@ -84,7 +83,9 @@ class Index:
                     continue
                 premises.append(p)
                 with torch.no_grad():
-                    self._index.append(model.encode(p))
+                    embedding = model.encode(p)
+                self._index.append(embedding)
+                self._premise_to_embedding[p] = embedding
                 self._hypo_to_indices[h].add(idx)
                 idx += 1
         premises = set(premises)
@@ -93,7 +94,9 @@ class Index:
                 continue
             premises.add(p)
             with torch.no_grad():
-                self._index.append(model.encode(p))
+                embedding = model.encode(p)
+            self._index.append(embedding)
+            self._premise_to_embedding[p] = embedding
         self._index = np.stack(self._index)
 
     def get_gt_premises(self, query, one_hot=False):
@@ -107,3 +110,11 @@ class Index:
     def get_similarity_scores(self, query_embedding):
         # Returns matrix 1 x embedding_dim
         return cosine_similarity(np.expand_dims(query_embedding, axis=0), self._index)
+
+    def get_embeding(self, premises):
+        # Expects a batch of premises
+        embeddings = []
+        for p in premises:
+            embeddings.append(self._premise_to_embedding[p])
+        embeddings = np.stack(embeddings)
+        return embeddings

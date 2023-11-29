@@ -31,14 +31,14 @@ def check_map(gt_labels, scores):
 ### HELPER FUNCTIONS ###
 
 
-def gen_labels_and_scores(hypo_to_premises, index, model):
+def gen_labels_and_scores(hypo_to_premises, index, query_model):
     gt_labels = []
     scores = []
     for i, query in enumerate(hypo_to_premises):
         gt_premise_indices = index.get_gt_premises(query, one_hot=True)
         gt_labels.append(gt_premise_indices)
         with torch.no_grad():
-            query_embedding = model.encode(query)
+            query_embedding = query_model.encode(query)
         similarity_scores = index.get_similarity_scores(query_embedding)
         scores.append(similarity_scores)
         if args.debug:
@@ -175,10 +175,10 @@ def compute_hit_at_k_v2(hypo_to_premises, index, scores):
     return hit_10, hit_20, hit_30, hit_40, hit_50
 
 
-def evaluate_pretrained_model(model, index, hypo_to_premises, faissIndex):
+def evaluate_pretrained_model(query_model, index, hypo_to_premises, faissIndex):
 
-    model.eval()
-    gt_labels, scores = gen_labels_and_scores(hypo_to_premises, index, model)
+    query_model.eval()
+    gt_labels, scores = gen_labels_and_scores(hypo_to_premises, index, query_model)
 
     prec_full_rec = compute_precision_at_full_recall(hypo_to_premises, faissIndex)
 
@@ -198,18 +198,18 @@ def evaluate_pretrained_model(model, index, hypo_to_premises, faissIndex):
     return prec_full_rec, map_, ndcg, ndcg_10, ndcg_20, ndcg_30, ndcg_40, ndcg_50, hit_10, hit_20, hit_30, hit_40, hit_50
 
 
-def evaluate(model):
+def evaluate(premise_model, query_model):
     hypo_to_premises = load_target_dict("test")
     premise_pool = load_premise_pool()
 
     current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     print("Start Indexing...", current_time)
-    index = Index(hypo_to_premises, premise_pool, model)
-    faissIndex = FaissIndex(hypo_to_premises, premise_pool, model)
+    index = Index(hypo_to_premises, premise_pool, premise_model)
+    faissIndex = FaissIndex(hypo_to_premises, premise_pool, premise_model)
     current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     print("Indexing Done", current_time)
     
-    res = evaluate_pretrained_model(model, index, hypo_to_premises, faissIndex)
+    res = evaluate_pretrained_model(query_model, index, hypo_to_premises, faissIndex)
     tab = PrettyTable()
     tab.field_names = ["Prec@Full Recall", "MAP", "NDCG", "NDCG@10", "NDCG@20", "NDCG@30", "NDCG@40", "NDCG@50", "Hit@10", "Hit@20", "Hit@30", "Hit@40", "Hit@50"]
     tab.add_row(["{0:0.3f}".format(i) for i in res])
@@ -219,7 +219,7 @@ def evaluate(model):
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SentenceTransformer(args.model).to(device)
-    evaluate(model)
+    evaluate(model, model)
 
 
 if __name__ == "__main__":
