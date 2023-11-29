@@ -111,7 +111,7 @@ class Index:
         # Returns matrix 1 x embedding_dim
         return cosine_similarity(np.expand_dims(query_embedding, axis=0), self._index)
 
-    def get_embeding(self, premises):
+    def get_embedding(self, premises):
         # Expects a batch of premises
         embeddings = []
         for p in premises:
