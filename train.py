@@ -62,7 +62,7 @@ def SCL(x1, x2, label, margin=0.1):
     # Supervised Contrastive Loss from https://gist.github.com/kongzii/0a108b115179cc17d58c158a94465a3c
     # Change to using cosine distance
     # Assume label is 1 for positive pairs and 0 for negative pairs
-    dist = torch.nn.functional.cosine_similarity(x1, x2)
+    dist = 1 - torch.nn.functional.cosine_similarity(x1, x2)
     loss = (label) * torch.pow(dist, 2) \
         + (1 - label) * torch.pow(torch.clamp(margin - dist, min=0.0), 2)
     loss = torch.mean(loss)
