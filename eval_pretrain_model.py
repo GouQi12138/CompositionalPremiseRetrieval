@@ -31,7 +31,7 @@ def check_map(gt_labels, scores):
 ### HELPER FUNCTIONS ###
 
 
-def gen_labels_and_scores(hypo_to_premises, index, query_model):
+def gen_labels_and_scores(hypo_to_premises, index, query_model, debug=False):
     gt_labels = []
     scores = []
     for i, query in enumerate(hypo_to_premises):
@@ -41,7 +41,7 @@ def gen_labels_and_scores(hypo_to_premises, index, query_model):
             query_embedding = query_model.encode(query)
         similarity_scores = index.get_similarity_scores(query_embedding)
         scores.append(similarity_scores)
-        if args.debug:
+        if debug:
             if i == 1:
                 break
     gt_labels = np.stack(gt_labels)
@@ -129,7 +129,7 @@ def compute_hit_at_k(hypo_to_premises, index, scores):
     hit_50 = sum(hit_50_list)/len(hit_50_list)
     return hit_10, hit_20, hit_30, hit_40, hit_50
 
-def compute_hit_at_k_v2(hypo_to_premises, index, scores):
+def compute_hit_at_k_v2(hypo_to_premises, index, scores, debug=False):
     # In top K samples, count how many are correct premises, divide by total number of correct premises
     hit_10_list = []
     hit_20_list = []
@@ -164,7 +164,7 @@ def compute_hit_at_k_v2(hypo_to_premises, index, scores):
         hit_40_list.append(num_matches_40)
         hit_50_list.append(num_matches_50)
         prem_count_list.append(len(gt_premise_indices))
-        if args.debug:
+        if debug:
             if i == 1:
                 break
     hit_10 = sum(hit_10_list)/sum(prem_count_list)
@@ -175,15 +175,15 @@ def compute_hit_at_k_v2(hypo_to_premises, index, scores):
     return hit_10, hit_20, hit_30, hit_40, hit_50
 
 
-def evaluate_pretrained_model(query_model, index, hypo_to_premises, faissIndex):
+def evaluate_pretrained_model(query_model, index, hypo_to_premises, faissIndex, debug=False):
 
     query_model.eval()
-    gt_labels, scores = gen_labels_and_scores(hypo_to_premises, index, query_model)
+    gt_labels, scores = gen_labels_and_scores(hypo_to_premises, index, query_model, debug=debug)
 
     prec_full_rec = compute_precision_at_full_recall(hypo_to_premises, faissIndex)
 
     map_ = average_precision_score(gt_labels, scores, average="samples")
-    if args.debug:
+    if debug:
         check_map(gt_labels, scores)
 
     ndcg = ndcg_score(gt_labels, scores)
@@ -193,12 +193,12 @@ def evaluate_pretrained_model(query_model, index, hypo_to_premises, faissIndex):
     ndcg_40 = ndcg_score(gt_labels, scores, k=40)
     ndcg_50 = ndcg_score(gt_labels, scores, k=50)
 
-    hit_10, hit_20, hit_30, hit_40, hit_50 = compute_hit_at_k_v2(hypo_to_premises, index, scores)
+    hit_10, hit_20, hit_30, hit_40, hit_50 = compute_hit_at_k_v2(hypo_to_premises, index, scores, debug=debug)
 
     return prec_full_rec, map_, ndcg, ndcg_10, ndcg_20, ndcg_30, ndcg_40, ndcg_50, hit_10, hit_20, hit_30, hit_40, hit_50
 
 
-def evaluate(premise_model, query_model):
+def evaluate(premise_model, query_model, debug=False):
     hypo_to_premises = load_target_dict("test")
     premise_pool = load_premise_pool()
 
@@ -209,7 +209,7 @@ def evaluate(premise_model, query_model):
     current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     print("Indexing Done", current_time)
     
-    res = evaluate_pretrained_model(query_model, index, hypo_to_premises, faissIndex)
+    res = evaluate_pretrained_model(query_model, index, hypo_to_premises, faissIndex, debug=debug)
     tab = PrettyTable()
     tab.field_names = ["Prec@Full Recall", "MAP", "NDCG", "NDCG@10", "NDCG@20", "NDCG@30", "NDCG@40", "NDCG@50", "Hit@10", "Hit@20", "Hit@30", "Hit@40", "Hit@50"]
     tab.add_row(["{0:0.3f}".format(i) for i in res])
@@ -218,8 +218,13 @@ def evaluate(premise_model, query_model):
 
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = SentenceTransformer(args.model).to(device)
-    evaluate(model, model)
+    premise_model = SentenceTransformer(args.model).to(device)
+    query_model = SentenceTransformer(args.model).to(device)
+    if args.model_path:
+        print("Loading query model from checkpoint...")
+        query_model = SentenceTransformer(args.model).to(device)
+        query_model.load_state_dict(torch.load(args.model_path))
+    evaluate(premise_model, query_model, debug=args.debug)
 
 
 if __name__ == "__main__":
@@ -228,6 +233,7 @@ if __name__ == "__main__":
                         help="pre-trained model \
                             (best general purpose model: all-mpnet-base-v2 (https://huggingface.co/sentence-transformers/all-mpnet-base-v2); \
                             best semantic search model: multi-qa-mpnet-base-dot-v1 (https://huggingface.co/sentence-transformers/multi-qa-mpnet-base-dot-v1))")
+    parser.add_argument("--model-path", type=str, help="specify to evaluate a specific query model")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
