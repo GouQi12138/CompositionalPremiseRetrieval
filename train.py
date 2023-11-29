@@ -157,18 +157,18 @@ def main(args):
         os.makedirs(args.save_dir)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = SentenceTransformer(args.model).to(device)
+    query_model = SentenceTransformer(args.model).to(device)
     if args.debug:
-        print(model)
+        print(query_model)
     train_dataset = PairwiseDataset(os.path.join(os.getcwd(), args.train_data))
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     val_dataset = PairwiseDataset(os.path.join(os.getcwd(), args.val_data))
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
-    model, best_epoch = fine_tune_model(model, train_dataloader, val_dataloader, device, args.save_dir, args)
+    query_model, best_epoch = fine_tune_model(query_model, train_dataloader, val_dataloader, device, args.save_dir, args)
 
-    model.load_state_dict(torch.load(os.path.join(args.save_dir, "model_{}.pt".format(best_epoch))))
+    query_model.load_state_dict(torch.load(os.path.join(args.save_dir, "model_{}.pt".format(best_epoch))))
     premise_model = SentenceTransformer(args.model).to(device)
-    evaluate(premise_model, model)
+    evaluate(premise_model, query_model)
 
 
 if __name__ == "__main__":
