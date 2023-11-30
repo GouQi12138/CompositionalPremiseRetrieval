@@ -132,16 +132,15 @@ def main(args):
     query_model.fit(train_objectives=[(train_dataloader, loss)],
                     evaluator=evaluator,
                     evaluation_steps=5000,
-                    epochs=10,
-                    output_path="./checkpoints/")
-
-
-    raise Exception("end here")
+                    epochs=args.epochs,
+                    optimizer_params={'lr': args.learning_rate},
+                    output_path=args.save_dir)
 
 
     # Test
-    query_model.load_state_dict(torch.load(os.path.join(args.save_dir, "model_{}.pt".format(best_epoch))))
+    #query_model.load_state_dict(torch.load(os.path.join(args.save_dir, "model_{}.pt".format(best_epoch))))
     #premise_model = SentenceTransformer(args.model).to(device)
+    query_model = SentenceTransformer(args.save_dir).to(device)
     evaluate(query_model, query_model)
 
 
@@ -154,8 +153,8 @@ if __name__ == "__main__":
     parser.add_argument("--train-data", type=str, default="data/processed_pairwise/pairwise_data_train_triplet_root_leaf_cross_join.tsv")
     parser.add_argument("--val-data", type=str, default="data/processed_pairwise/pairwise_data_dev_triplet_root_leaf_cross_join.tsv")
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--epochs", type=int, default=5)
-    parser.add_argument("--learning-rate", type=float, default=1e-5)
+    parser.add_argument("--epochs", type=int, default=8)
+    parser.add_argument("--learning-rate", type=float, default=1e-6)
     parser.add_argument("--save-dir", type=str, default="./checkpoints/", help="directory to save best model weights and loss curves in")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
