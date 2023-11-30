@@ -64,11 +64,10 @@ def k_at_recall(premises, predictions, recall_level=1):
             items_left -= 1
         if items_left == 0:
             return k
-        
     raise Exeption("Not all premises are retrieved")
     return -1
 
-def compute_precision_at_full_recall(hypo_to_premises, faissIndex):
+def compute_precision_at_full_recall(hypo_to_premises, faissIndex, query_model=None):
     # Precision at full recall is the average of the precision values at each recall threshold
     # Recall threshold is the number of relevant documents
     # Precision is the number of relevant documents divided by the number of retrieved documents
@@ -77,7 +76,7 @@ def compute_precision_at_full_recall(hypo_to_premises, faissIndex):
     precision_at_full_recall_list = []
     for h in hypo_to_premises:
         prem_label = faissIndex._hypo_to_indices[h]
-        prem_pred = faissIndex.retrieve_index(h, k=len(faissIndex._premise_pool))
+        prem_pred = faissIndex.retrieve_index(h, k=len(faissIndex._premise_pool), model=query_model)
 
         num_relevant_docs = len(hypo_to_premises[h])
         num_retrieved_docs = k_at_recall(prem_label, prem_pred)
@@ -180,7 +179,7 @@ def evaluate_pretrained_model(query_model, index, hypo_to_premises, faissIndex, 
     query_model.eval()
     gt_labels, scores = gen_labels_and_scores(hypo_to_premises, index, query_model, debug=debug)
 
-    prec_full_rec = compute_precision_at_full_recall(hypo_to_premises, faissIndex)
+    prec_full_rec = compute_precision_at_full_recall(hypo_to_premises, faissIndex, query_model)
 
     map_ = average_precision_score(gt_labels, scores, average="samples")
     if debug:

@@ -49,9 +49,11 @@ class FaissIndex:
         faiss.normalize_L2(embeddings)
         self._index.add(embeddings)
 
-    def retrieve_index(self, query, k=5):
+    def retrieve_index(self, query, k=5, model=None):
+        if model is None:
+            model = self._model
         # find index of query in premise_pool
-        p_emb = np.array([self._model.encode(query)])
+        p_emb = np.array([model.encode(query)])
         faiss.normalize_L2(p_emb)
         distances, ann = self._index.search(p_emb, k=k)
         idx = ann[0]
