@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from torch.utils.data import Dataset
+from sentence_transformers import InputExample
 
 
 """ Dataloader for constrastive learning on pairwise examples.
@@ -79,7 +80,50 @@ class TripletDataset(Dataset):
 
         # convert to list of tuples
         tuples = list(df.itertuples(index=False, name=None))
-        self.triplets = tuples
+        input_examples = []
+        for (hyp, pos, neg) in tuples:
+            input_examples.append(InputExample(texts=[ hyp, pos, neg ]))
+        self.triplets = input_examples
+
+    def __len__(self):
+        return len(self.triplets)
+
+    def __getitem__(self, idx):
+        return self.triplets[idx]
+
+
+class TripletEvalDataset(Dataset):
+    """ Stores dictionaries of (hypo, [pos], [neg]) string tuples """
+    def __init__(self, triplet_file):
+        # read file
+        df = read_tsv(triplet_file)
+
+        # check shape (N * 3)
+        if len(df.shape)!=2 or df.shape[1]!=3:
+            raise Exception("Format Error: tsv file has incorrect dimensions")
+
+        # convert to list of tuples
+        tuples = list(df.itertuples(index=False, name=None))
+        dicts = []
+        hypothesis = None
+        positives = set()
+        negatives = set()
+        for (hyp, pos, neg) in tuples:
+            if hypothesis is None:
+                hypothesis = hyp
+            if hyp!=hypothesis:
+                # new hypo
+                dicts.append({'query': hypothesis, 'positive': list(positives), 'negative': list(negatives)})
+                hypothesis = hyp
+                positives = set()
+                negatives = set()
+
+            positives.add(pos)
+            negatives.add(neg)
+
+        dicts.append({'query': hypothesis, 'positive': list(positives), 'negative': list(negatives)})
+
+        self.triplets = dicts
 
     def __len__(self):
         return len(self.triplets)

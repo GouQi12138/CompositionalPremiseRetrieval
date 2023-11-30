@@ -1,72 +1,22 @@
-import argparse
-import matplotlib.pyplot as plt
 import os
+import argparse
 from tqdm import tqdm
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
+import matplotlib.pyplot as plt
+
 import torch
 from torch.utils.data import DataLoader
+from info_nce import InfoNCE, info_nce
 
-from dataloader.pairwise_dataloader import PairwiseDataset
+from sentence_transformers import SentenceTransformer, InputExample
+from sentence_transformers.evaluation import RerankingEvaluator
+from sentence_transformers import losses
+
+from dataloader.pairwise_dataloader import PairwiseDataset, TripletDataset, TripletEvalDataset
 from dataloader.premise_pool_loader import load_premise_pool
 from eval_pretrain_model import evaluate
-from index import Index
 
-
-def check_missing_premises(train_dataloader, val_dataloader):
-    premise_pool = load_premise_pool()
-    pool_is_missing_train_premises = False
-    pool_is_missing_val_premises = False
-    premise_pool_set = set(premise_pool)
-    for batch in train_dataloader:
-        query, premise, target = batch
-        for p in premise:
-            if p not in premise_pool_set:
-                pool_is_missing_train_premises = True
-    for batch in val_dataloader:
-        query, premise, target = batch
-        for p in premise:
-            if p not in premise_pool_set:
-                pool_is_missing_val_premises = True
-    if pool_is_missing_train_premises or pool_is_missing_val_premises:
-        print("Premise pool is missing train premises: {}\nPremise pool is missing validation premises: {}".format(pool_is_missing_train_premises, pool_is_missing_val_premises))
-
-
-def build_index(train_dataloader, val_dataloader, model):
-    premise_pool_set = set()
-    for batch in train_dataloader:
-        query, premise, target = batch
-        for p in premise:
-            premise_pool_set.add(p)
-    for batch in val_dataloader:
-        query, premise, target = batch
-        for p in premise:
-            premise_pool_set.add(p)
-    index = Index({}, premise_pool_set, model)
-    return index
-
-
-def gen_query_features(query, model, device):
-    # From encode method of SentenceTransformer: https://github.com/UKPLab/sentence-transformers/blob/master/sentence_transformers/SentenceTransformer.py#L111
-    length_sorted_idx = np.argsort([-model._text_length(sen) for sen in query])
-    sentences_sorted = [query[idx] for idx in length_sorted_idx]
-    features = model.tokenize(sentences_sorted)
-    for key in features:
-        if isinstance(features[key], torch.Tensor):
-            features[key] = features[key].to(device)
-    return features
-
-
-def SCL(x1, x2, label, margin=0.01):
-    # Supervised Contrastive Loss from https://gist.github.com/kongzii/0a108b115179cc17d58c158a94465a3c
-    # Change to using cosine distance
-    # Assume label is 1 for positive pairs and 0 for negative pairs
-    dist = 1 - torch.nn.functional.cosine_similarity(x1, x2)
-    loss = (label) * torch.pow(dist, 2) \
-        + (1 - label) * torch.pow(torch.clamp(margin - dist, min=0.0), 2)
-    loss = torch.mean(loss)
-    return loss
 
 
 def train_one_epoch(model, train_dataloader, optimizer, index, device):
@@ -149,11 +99,6 @@ def fine_tune_model(model, train_dataloader, val_dataloader, device, save_dir, a
         all_train_losses.append(train_loss)
         all_val_losses.append(val_loss)
         save_loss_curves(all_train_losses, all_val_losses, save_dir)
-
-    print(all_train_losses)
-    print(all_val_losses)
-    print(best_epoch)
-
     return model, best_epoch
 
 
@@ -161,21 +106,43 @@ def main(args):
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
-    # Training
+    # Model to train
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     query_model = SentenceTransformer(args.model).to(device)
     if args.debug:
         print(query_model)
-    train_dataset = PairwiseDataset(os.path.join(os.getcwd(), args.train_data))
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    val_dataset = PairwiseDataset(os.path.join(os.getcwd(), args.val_data))
-    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
-    query_model, best_epoch = fine_tune_model(query_model, train_dataloader, val_dataloader, device, args.save_dir, args)
 
-    # Testing
+    # Process data format
+    train_dataset = TripletDataset(os.path.join(os.getcwd(), args.train_data))
+    val_dataset = TripletEvalDataset(os.path.join(os.getcwd(), args.val_data))
+
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    #val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+
+    # Train
+    #query_model, best_epoch = fine_tune_model(query_model, train_dataloader, val_dataloader, device, args.save_dir, args)
+
+    # info NCE loss
+    #loss = InfoNCE(negative_mode='paired')
+    # Triplet loss
+    loss = losses.TripletLoss(model=query_model, distance_metric=losses.TripletDistanceMetric.COSINE, triplet_margin=0.001)
+    # eucl or cos
+
+    evaluator = RerankingEvaluator(val_dataset)
+    query_model.fit(train_objectives=[(train_dataloader, loss)],
+                    evaluator=evaluator,
+                    evaluation_steps=5000,
+                    epochs=10,
+                    output_path="./checkpoints/")
+
+
+    raise Exception("end here")
+
+
+    # Test
     query_model.load_state_dict(torch.load(os.path.join(args.save_dir, "model_{}.pt".format(best_epoch))))
-    premise_model = SentenceTransformer(args.model).to(device)
-    evaluate(premise_model, query_model)
+    #premise_model = SentenceTransformer(args.model).to(device)
+    evaluate(query_model, query_model)
 
 
 if __name__ == "__main__":
@@ -188,8 +155,8 @@ if __name__ == "__main__":
     parser.add_argument("--val-data", type=str, default="data/processed_pairwise/pairwise_data_dev_triplet_root_leaf_cross_join.tsv")
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=5)
-    parser.add_argument("--learning-rate", type=float, default=1e-8)
-    parser.add_argument("--save-dir", type=str, default="checkpoints", help="directory to save best model weights and loss curves in")
+    parser.add_argument("--learning-rate", type=float, default=1e-5)
+    parser.add_argument("--save-dir", type=str, default="./checkpoints/", help="directory to save best model weights and loss curves in")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
