@@ -119,7 +119,7 @@ def generate_pairwise_data(stage='train', format='triplet', positive='adjacent',
             neg_list = []
 
             for dis in distractor_idx:
-                neg_list.append(sentences[dis])
+                neg_list.append(process_string(sentences[dis]))
 
 
             if positive == 'adjacent':
@@ -138,7 +138,7 @@ def generate_pairwise_data(stage='train', format='triplet', positive='adjacent',
                         if not child:
                             continue
                         # construct node, child pair
-                        pos_list.append([sentences[node], sentences[child]])
+                        pos_list.append([sentences[node], process_string(sentences[child])])
 
 
             elif positive == 'root_leaf':
@@ -149,7 +149,7 @@ def generate_pairwise_data(stage='train', format='triplet', positive='adjacent',
                 premises = [sentences[idx] for idx in premise_idx]
 
                 for premise in premises:
-                    pos_list.append([hypothesis, premise])
+                    pos_list.append([hypothesis, process_string(premise)])
 
 
             # --- append cross-joined samples to result ---
@@ -177,6 +177,17 @@ def generate_pairwise_data(stage='train', format='triplet', positive='adjacent',
 # Negative premise from all sentences - active entailment
 
 
+def process_string(sent):
+    # to lower case
+    # replace \\s+ with single space
+    # add space in front of 's
+    # replace ; with /
+    sent = sent.lower()
+    sent = sent.replace("'s", " 's")
+    sent = sent.replace(";", " / ")
+    sent = ' '.join(sent.split())
+    return sent
+
 # jsonl file loader
 def load_jsonl(file):
     data = []
@@ -201,11 +212,11 @@ def read_tsv(file):
 
 
 if __name__ == "__main__":
-    #generate_pairwise_data(stage="train", positive="adjacent")
-    #generate_pairwise_data(stage="dev", positive="adjacent")
-    #generate_pairwise_data(stage="test", positive="adjacent")
-    #generate_pairwise_data(stage="train", positive="root_leaf")
-    #generate_pairwise_data(stage="dev", positive="root_leaf")
-    #generate_pairwise_data(stage="test", positive="root_leaf")
-    data = TripletDataset("../data/processed_pairwise/pairwise_data_train_triplet_root_leaf_cross_join.tsv")
+    generate_pairwise_data(stage="train", positive="adjacent")
+    generate_pairwise_data(stage="dev", positive="adjacent")
+    generate_pairwise_data(stage="test", positive="adjacent")
+    generate_pairwise_data(stage="train", positive="root_leaf")
+    generate_pairwise_data(stage="dev", positive="root_leaf")
+    generate_pairwise_data(stage="test", positive="root_leaf")
+    #data = TripletDataset("../data/processed_pairwise/pairwise_data_train_triplet_root_leaf_cross_join.tsv")
 
