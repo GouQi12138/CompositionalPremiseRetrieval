@@ -215,6 +215,26 @@ def evaluate(premise_model, query_model, debug=False):
     print(tab)
 
 
+def retrieve(premise_model):
+    hypo_to_premises = load_target_dict("test")
+    premise_pool = load_premise_pool()
+    
+    faissIndex = FaissIndex(hypo_to_premises, premise_pool, premise_model)
+    
+    for h in hypo_to_premises:
+        true_premises = hypo_to_premises[h]
+        pred_premises = faissIndex.retrieve_index(h, k=20)
+
+        print("Hypothesis:", h)
+        print("True premises:")
+        for i in true_premises:
+            print(i)
+        print("Predicted premises:")
+        for i in pred_premises:
+            print(premise_pool[i])
+
+        break
+
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     premise_model = SentenceTransformer(args.model).to(device)
@@ -223,7 +243,8 @@ def main(args):
         print("Loading query model from checkpoint...")
         query_model = SentenceTransformer(args.model).to(device)
         query_model.load_state_dict(torch.load(args.model_path))
-    evaluate(premise_model, query_model, debug=args.debug)
+    #evaluate(premise_model, query_model, debug=args.debug)
+    retrieve(query_model)
 
 
 if __name__ == "__main__":

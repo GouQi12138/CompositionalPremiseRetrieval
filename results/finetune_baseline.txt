@@ -1,12 +1,50 @@
 
 Triplet adjacent
++------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
+| Prec@Full Recall |  MAP  |  NDCG | NDCG@10 | NDCG@20 | NDCG@30 | NDCG@40 | NDCG@50 | Hit@10 | Hit@20 | Hit@30 | Hit@40 | Hit@50 |
++------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
+|      0.192       | 0.431 | 0.659 |  0.533  |  0.570  |  0.586  |  0.599  |  0.608  | 0.470  | 0.567  | 0.622  | 0.668  | 0.702  |
++------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
+Hypothesis: northern hemisphere will have the most sunlight in summer
+True premises:
+a hemisphere of earth is a kind of place
+the northern hemisphere is a kind of hemisphere of earth
+if a place is in summer, then it will have the most sunlight
 
+Predicted premises:
+*if a place is in summer, then it will have the most sunlight
+summer has the most sunlight
+the amount of daylight is greatest in the summer
+the amount of daylight is greatest on the summer solstice
+the equator receives the most amount of direct sunlight throughout the year
+summer is when a hemisphere is tilted towards the sun
+june is during the summer in the northern hemisphere
+the winter in the southern hemisphere is during the summer in the northern hemisphere
+the winter in the northern hemisphere is during the summer in the southern hemisphere
+the amount of daylight is least in the winter
+snow melts in the summer in an arctic environment
+snow melts during the summer in an arctic environment
+*the northern hemisphere is a kind of hemisphere of earth
+the northern hemisphere is tilted toward the sun
+summer is a kind of season
+the north pole is located in the northern hemisphere
+when a hemisphere is tilted towards the sun , that hemisphere receives more direct sunlight
+black objects absorb the most amount of sunlight
+the amount of daylight is least on the winter solstice
+as the distance of a location from the north pole becomes smaller / closer , the amount of daylight received by that location will increase during the summer
+
+*** But some very "trivial/small" sentences are still hard to retrieve
 
 Triplet root_leaf
 +------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
 | Prec@Full Recall |  MAP  |  NDCG | NDCG@10 | NDCG@20 | NDCG@30 | NDCG@40 | NDCG@50 | Hit@10 | Hit@20 | Hit@30 | Hit@40 | Hit@50 |
 +------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
 |      0.203       | 0.439 | 0.661 |  0.539  |  0.574  |  0.590  |  0.603  |  0.610  | 0.482  | 0.575  | 0.625  | 0.670  | 0.699  |
++------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
++------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
+| Prec@Full Recall |  MAP  |  NDCG | NDCG@10 | NDCG@20 | NDCG@30 | NDCG@40 | NDCG@50 | Hit@10 | Hit@20 | Hit@30 | Hit@40 | Hit@50 |
++------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
+|      0.172       | 0.412 | 0.638 |  0.510  |  0.546  |  0.561  |  0.571  |  0.578  | 0.443  | 0.539  | 0.585  | 0.620  | 0.647  |
 +------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
 
 PairSCL root_leaf

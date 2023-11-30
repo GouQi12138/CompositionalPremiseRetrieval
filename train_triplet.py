@@ -133,7 +133,7 @@ def main(args):
                     evaluator=evaluator,
                     evaluation_steps=5000,
                     epochs=args.epochs,
-                    optimizer_params={'lr': args.learning_rate},
+                    #optimizer_params={'lr': args.learning_rate},
                     output_path=args.save_dir)
 
 

@@ -6,3 +6,31 @@ SBERT
 |      0.182       | 0.408 | 0.638 |  0.505  |  0.542  |  0.562  |  0.571  |  0.578  | 0.429  | 0.524  | 0.588  | 0.624  | 0.648  |
 +------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
 
+Hypothesis: northern hemisphere will have the most sunlight in summer
+True premises:
+a hemisphere of earth is a kind of place
+if a place is in summer, then it will have the most sunlight
+the northern hemisphere is a kind of hemisphere of earth
+
+Predicted premises:
+summer has the most sunlight
+*if a place is in summer, then it will have the most sunlight
+the equator receives the most amount of direct sunlight throughout the year
+the amount of daylight is greatest in the summer
+the amount of daylight is greatest on the summer solstice
+summer is when a hemisphere is tilted towards the sun
+as the distance of a location from the north pole becomes smaller / closer , the amount of daylight received by that location will increase during the summer
+the northern hemisphere is tilted toward the sun
+the equator receives more sunlight than the poles on earth
+when a hemisphere is tilted towards the sun , that hemisphere receives more direct sunlight
+the winter in the northern hemisphere is during the summer in the southern hemisphere
+the summer solstice is on june 21st in the northern hemisphere
+the winter in the southern hemisphere is during the summer in the northern hemisphere
+the amount of daylight is least on the winter solstice
+june is during the summer in the northern hemisphere
+the amount of daylight is least in the winter
+the amount of sunlight usually is the same at the locations with same latitude
+the air around the equator receives direct sunlight
+when the seasons change from summer to fall / from summer to winter , the amount of daylight will decrease
+*the northern hemisphere is a kind of hemisphere of earth
+
