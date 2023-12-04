@@ -197,8 +197,8 @@ def evaluate_pretrained_model(query_model, index, hypo_to_premises, faissIndex, 
     return prec_full_rec, map_, ndcg, ndcg_10, ndcg_20, ndcg_30, ndcg_40, ndcg_50, hit_10, hit_20, hit_30, hit_40, hit_50
 
 
-def evaluate(premise_model, query_model, debug=False):
-    hypo_to_premises = load_target_dict("test")
+def evaluate(premise_model, query_model, split="test", debug=False):
+    hypo_to_premises = load_target_dict(split)
     premise_pool = load_premise_pool()
 
     current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -243,7 +243,7 @@ def main(args):
         print("Loading query model from checkpoint...")
         query_model = SentenceTransformer(args.model).to(device)
         query_model.load_state_dict(torch.load(args.model_path))
-    evaluate(query_model, query_model, debug=args.debug)
+    # evaluate(query_model, query_model, split=args.split, debug=args.debug)
     retrieve(query_model)
 
 
@@ -254,6 +254,7 @@ if __name__ == "__main__":
                             (best general purpose model: all-mpnet-base-v2 (https://huggingface.co/sentence-transformers/all-mpnet-base-v2); \
                             best semantic search model: multi-qa-mpnet-base-dot-v1 (https://huggingface.co/sentence-transformers/multi-qa-mpnet-base-dot-v1))")
     parser.add_argument("--model-path", type=str, help="specify to evaluate a specific query model")
+    parser.add_argument("--split", type=str, default="test", help="data split to evaluate on (train, dev, test)")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
