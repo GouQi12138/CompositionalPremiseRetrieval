@@ -3,6 +3,11 @@ Triplet adjacent
 +------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
 | Prec@Full Recall |  MAP  |  NDCG | NDCG@10 | NDCG@20 | NDCG@30 | NDCG@40 | NDCG@50 | Hit@10 | Hit@20 | Hit@30 | Hit@40 | Hit@50 |
 +------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
+|      0.197       | 0.433 | 0.656 |  0.534  |  0.569  |  0.587  |  0.595  |  0.602  | 0.475  | 0.569  | 0.627  | 0.657  | 0.683  |
++------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
++------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
+| Prec@Full Recall |  MAP  |  NDCG | NDCG@10 | NDCG@20 | NDCG@30 | NDCG@40 | NDCG@50 | Hit@10 | Hit@20 | Hit@30 | Hit@40 | Hit@50 |
++------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
 |      0.192       | 0.431 | 0.659 |  0.533  |  0.570  |  0.586  |  0.599  |  0.608  | 0.470  | 0.567  | 0.622  | 0.668  | 0.702  |
 +------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
 Hypothesis: northern hemisphere will have the most sunlight in summer
@@ -46,6 +51,33 @@ Triplet root_leaf
 +------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
 |      0.172       | 0.412 | 0.638 |  0.510  |  0.546  |  0.561  |  0.571  |  0.578  | 0.443  | 0.539  | 0.585  | 0.620  | 0.647  |
 +------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+
+Hypothesis: northern hemisphere will have the most sunlight in summer
+True premises:
+if a place is in summer, then it will have the most sunlight
+a hemisphere of earth is a kind of place
+the northern hemisphere is a kind of hemisphere of earth
+
+Predicted premises:
+*the northern hemisphere is a kind of hemisphere of earth
+when a hemisphere is tilted towards the sun , that hemisphere receives more direct sunlight
+june is during the summer in the northern hemisphere
+the winter in the southern hemisphere is during the summer in the northern hemisphere
+the winter in the northern hemisphere is during the summer in the southern hemisphere
+if a place is in summer, then it will have the most sunlight
+*the northern hemisphere is tilted toward the sun
+summer is when a hemisphere is tilted towards the sun
+the southern hemisphere is a kind of hemisphere of earth
+summer has the most sunlight
+united states is located in the northern hemisphere
+the equator receives the most amount of direct sunlight throughout the year
+china is located in the northern hemisphere
+the western hemisphere is a kind of hemisphere of earth
+the eastern hemisphere is a kind of hemisphere of earth
+when a hemisphere is tilted away from the sun , that hemisphere receives less direct sunlight
+netherlands is located in the northern hemisphere
+the southern hemisphere is located south to the northern hemisphere
+june is during the winter in the southern hemisphere
+united kingdom is located in the northern hemisphere
 
 PairSCL root_leaf
 +------------------+-------+-------+---------+---------+---------+---------+---------+--------+--------+--------+--------+--------+

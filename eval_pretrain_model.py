@@ -237,13 +237,13 @@ def retrieve(premise_model):
 
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    premise_model = SentenceTransformer(args.model).to(device)
+    #premise_model = SentenceTransformer(args.model).to(device)
     query_model = SentenceTransformer(args.model).to(device)
     if args.model_path:
         print("Loading query model from checkpoint...")
         query_model = SentenceTransformer(args.model).to(device)
         query_model.load_state_dict(torch.load(args.model_path))
-    #evaluate(premise_model, query_model, debug=args.debug)
+    evaluate(query_model, query_model, debug=args.debug)
     retrieve(query_model)
 
 
