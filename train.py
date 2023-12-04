@@ -63,8 +63,8 @@ def SCL(x1, x2, label, margin=0.01):
     # Change to using cosine distance
     # Assume label is 1 for positive pairs and 0 for negative pairs
     dist = 1 - torch.nn.functional.cosine_similarity(x1, x2)
-    loss = (label) * torch.pow(dist, 2) \
-        + (1 - label) * torch.pow(torch.clamp(margin - dist, min=0.0), 2)
+    loss = (label) * 0.5 * torch.pow(dist, 2) \
+        + (1 - label) * 0.5 * torch.pow(torch.clamp(margin - dist, min=0.0), 2)
     loss = torch.mean(loss)
     return loss
 
@@ -122,8 +122,8 @@ def save_loss_curves(train_losses, val_losses, save_dir):
 def save_model_if_better(best_val_loss, val_loss, best_epoch, epoch, model, save_dir):
     if val_loss > best_val_loss:
         return best_val_loss, best_epoch
-    torch.save(model.state_dict(), os.path.join(save_dir, "model_{}.pt".format(epoch)))
-    return val_loss, epoch
+    torch.save(model.state_dict(), os.path.join(save_dir, "model_{}.pt".format(epoch+1)))
+    return val_loss, epoch+1
 
 
 def fine_tune_model(model, train_dataloader, val_dataloader, device, save_dir, args):
