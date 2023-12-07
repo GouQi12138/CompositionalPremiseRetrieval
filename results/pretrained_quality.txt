@@ -1,0 +1,175 @@
+This file contains qualitative analysis on pretrained baseline
+On the first 20 test problems
+
+Q1
+Hypothesis: northern hemisphere will have the most sunlight in summer
+Ranking true premises:
+3
+2 	 3226 	 if a place is in summer, then it will have the most sunlight
+20 	 7378 	 the northern hemisphere is a kind of hemisphere of earth
+177 	 2428 	 a hemisphere of earth is a kind of place
+
+Q2
+Hypothesis: a complete revolution of the earth around the sun will take one earth year
+Ranking true premises:
+4
+3 	 10567 	 a complete revolution / orbit of a planet around its star takes 1 / one planetary year
+8 	 8628 	 the earth revolves around the sun
+193 	 8786 	 earth is a kind of planet
+284 	 6456 	 the sun is a kind of star
+
+Q3
+Hypothesis: a complete revolution of the moon around the earth takes 28 to 31 days
+Ranking true premises:
+2
+1 	 8061 	 a complete revolution / orbit of the moon around the earth takes 1 / one month
+82 	 10556 	 1 month is equal to 28-31 days
+
+Q4
+Hypothesis: the gravitational pull of the moon on earth affects the tides more than the gravitational pull of the sun
+Ranking true premises:
+5
+1 	 10070 	 the gravitational pull of the moon on earth 's oceans causes the tides
+2 	 2497 	 the gravitational pull of the sun on earth 's oceans causes the tides
+9 	 5879 	 the moon is the celestial object that is closer to the earth than the sun
+89 	 5016 	 as distance from an object decreases , the pull of gravity on that object increases
+186 	 241 	 the cause of something affects that something
+
+Q5
+Hypothesis: light year can be used to measure the distance between the stars in milky way
+Ranking true premises:
+4
+2 	 7004 	 light years ly are an astronomy unit used for measuring length / distance generally used for values between 1 and 27000000000
+5 	 6330 	 stars are located light years apart from each other
+21 	 5620 	 the milky way is a kind of galaxy
+35 	 10998 	 a galaxy is made of stars
+
+Q6
+Hypothesis: comet is likely an object that is mainly made of ice and orbitting the sun in an elliptical path
+Ranking true premises:
+3
+3 	 1978 	 a comet is often made of ice
+5 	 1906 	 comets orbit the sun in the solar system
+6 	 6912 	 comet orbits are elliptical
+
+Q7
+Hypothesis: galaxies can be classified by shape
+Ranking true premises:
+3
+5 	 4866 	 a galaxy is a kind of celestial object
+42 	 933 	 shape is a property of the appearance of an object
+99 	 3927 	 classifying means grouping objects / materials by their properties
+
+Q8
+Hypothesis: the difference between the earth and the moon is that the moon revolves around a planet
+Ranking true premises:
+5
+2 	 2836 	 the moon orbits the earth
+33 	 8628 	 the earth revolves around the sun
+38 	 8786 	 earth is a kind of planet
+128 	 8701 	 revolving around means orbiting
+197 	 6456 	 the sun is a kind of star
+
+Q9
+Hypothesis: both the surface of the moon and the surface of the earth contain mountains
+Ranking true premises:
+2
+1 	 3679 	 the surface of the moon contains mountains
+2 	 9654 	 the surface of the earth contains mountains
+
+Q10
+Hypothesis: the four planets closest to the sun are more dense than the four planets farthest from the sun
+Ranking true premises:
+4
+1 	 9918 	 the four planets farthest from the sun are made of gas
+2 	 1171 	 the four planets closest to the sun are made of rock
+6 	 7606 	 a solid is more dense than a gas
+370 	 1191 	 a rock is usually a solid
+
+Q11
+Hypothesis: earth is a celestial object located in the milky way galaxy
+Ranking true premises:
+3
+1 	 1150 	 earth is located in the milky way galaxy
+12 	 8786 	 earth is a kind of planet
+30 	 11410 	 a planet is a kind of celestial object / celestial body
+
+Q12
+Hypothesis: the sun is a kind of star
+Ranking true premises:
+5
+7 	 7045 	 the sun is a source of light energy called sunlight
+14 	 1184 	 a star is a source of light / light energy through nuclear reactions
+15 	 3222 	 the sun is a source of heat energy called sunlight
+147 	 8602 	 nuclear reactions are the source of the sun 's energy
+3036 	 448 	 a source of something emits / produces / generates / provides that something
+
+Q13
+Hypothesis: main-sequences stars have the same chemical composition
+Ranking true premises:
+2
+1 	 1477 	 stars generally have the same chemical composition
+2 	 3932 	 main-sequences stars are a kind of star
+
+Q14
+Hypothesis: the sun is a yellow dwarf with medium size
+Ranking true premises:
+3
+1 	 10440 	 the sun is a kind of yellow dwarf
+6 	 2688 	 the sun is average in size for a star in our galaxy
+1419 	 317 	 medium means average
+
+Q15
+Hypothesis: red dwarf stars are cooler than the sun
+Ranking true premises:
+2
+1 	 4391 	 red dwarf stars are cooler in temperature than yellow dwarf stars
+12 	 10440 	 the sun is a kind of yellow dwarf
+
+Q16
+Hypothesis: the sun is a yellow main-sequence star
+Ranking true premises:
+3
+1 	 9499 	 main-sequence stars are generally yellow in color
+3 	 11250 	 a yellow dwarf is a kind of main-sequence star
+4 	 10440 	 the sun is a kind of yellow dwarf
+
+Q17
+Hypothesis: protons and neutrons are involved in the nuclear fusion
+Ranking true premises:
+1
+1 	 404 	 protons / neutrons are formed by nuclear fusion
+
+Q18
+Hypothesis: humans can jump higher on the moon becasue the force of gravity on the moon is less than on earth
+Ranking true premises:
+8
+2 	 4292 	 the earth has more mass than the moon
+5 	 1770 	 as the force of gravity on an animal decreases , the animal can jump higher generally
+23 	 9610 	 a moon is a kind of celestial object / body
+86 	 3302 	 surface gravity is a kind of gravity
+148 	 10388 	 earth is a kind of celestial object
+262 	 10130 	 gravity is a kind of force
+392 	 9820 	 as the mass of a celestial object decreases , the surface gravity of that celestial object weakens
+1714 	 8444 	 a human is a kind of animal
+
+Q19
+Hypothesis: an astronaut will weigh more on earth because the surface gravity on the moon is less than the surface gravity on the earth
+Ranking true premises:
+6
+1 	 4292 	 the earth has more mass than the moon
+6 	 7500 	 as the force of gravity decreases , the weight of the object will decrease
+16 	 1083 	 an astronaut is a kind of object
+27 	 9820 	 as the mass of a celestial object decreases , the surface gravity of that celestial object weakens
+56 	 9280 	 surface gravity is a kind of force of gravity
+1413 	 1700 	 less is the opposite of more
+
+Q20
+Hypothesis: a telescope can be used to observe what is on the surface of the moon
+Ranking true premises:
+4
+1 	 6770 	 what is on the surface of the moon is a kind of detailed observation
+3 	 4455 	 a telescope is used for observing moons
+8 	 6136 	 detailed observation of celestial objects requires a telescope
+18 	 9610 	 a moon is a kind of celestial object / body
+

@@ -2,6 +2,7 @@ import argparse
 import time
 
 import numpy as np
+import matplotlib.pyplot as plt
 from prettytable import PrettyTable
 from sklearn.metrics import average_precision_score, ndcg_score
 from sentence_transformers import SentenceTransformer
@@ -220,31 +221,101 @@ def retrieve(premise_model):
     premise_pool = load_premise_pool()
     
     faissIndex = FaissIndex(hypo_to_premises, premise_pool, premise_model)
-    
+
+    count = 0
     for h in hypo_to_premises:
         true_premises = hypo_to_premises[h]
-        pred_premises = faissIndex.retrieve_index(h, k=20)
+        pred_premises = faissIndex.retrieve_index(h, k=8000)
 
-        print("Hypothesis:", h)
-        print("True premises:")
+        print("\nHypothesis:", h)
+        print("Ranking true premises:")
+        """
         for i in true_premises:
-            print(i)
-        print("Predicted premises:")
-        for i in pred_premises:
-            print(premise_pool[i])
+            print(premise_pool.index(i), "\t", i)
+        """
+        print(len(true_premises))
+        #print("Predicted premises:")
+        for i in range(len(pred_premises)):
+            if premise_pool[pred_premises[i]] in true_premises:
+                # ranking and index
+                print(i+1, "\t", pred_premises[i], "\t", premise_pool[pred_premises[i]])
+        
+        count += 1
+        if count >= 20:
+            break
 
-        break
+def genL2report(model):
+    hypo_to_premises = load_target_dict("test")
+    premise_pool = load_premise_pool()
+
+    # Encoding of premise pool
+    prem_pool_emb = model.encode(premise_pool)
+    prem_pool_norm = np.linalg.norm(prem_pool_emb, axis=1)
+
+    hypo_list = []
+    prem_list = []
+    for h in hypo_to_premises:
+        hypo_list.append(h)
+        prem_list.extend(hypo_to_premises[h])
+
+    # Encoding of hypothesis
+    hypo_emb = model.encode(hypo_list)
+    hypo_norm = np.linalg.norm(hypo_emb, axis=1)
+
+    # Encoding of used premises
+    prems_emb = model.encode(prem_list)
+    prems_norm = np.linalg.norm(prems_emb, axis=1)
+
+
+    print(prem_pool_norm.shape)
+    print(hypo_norm.shape)
+    print(prems_norm.shape)
+
+    print(prem_pool_norm.mean())
+    print(hypo_norm.mean())
+    print(prems_norm.mean())
+    print(hypo_norm[:20])
+
+    bins = np.arange(0, 2, 0.01)
+
+    # Generate histogram
+    #https://stackoverflow.com/questions/26218704/matplotlib-histogram-with-collection-bin-for-high-values
+    fig, axes = plt.subplots(1, 3, sharey=True, sharex=True, figsize=(12, 5))
+    plt.setp(axes, ylim=(0, 100))
+
+    axes[0].hist(np.clip(prem_pool_norm, bins[0], bins[-1]), bins=bins, density=True, label='Premise Pool')
+    axes[0].legend(loc='upper right')
+
+    axes[1].hist(np.clip(hypo_norm, bins[0], bins[-1]), bins=bins, density=True, label='Hypothesis')
+    axes[1].legend(loc='upper right')
+
+    axes[2].hist(np.clip(prems_norm, bins[0], bins[-1]), bins=bins, density=True, label='Used Premises')
+    axes[2].legend(loc='upper right')
+
+    fig.suptitle("L2 Norm for embeddings on pretrained SBERT model")
+    fig.supxlabel("L2 Norm")
+    fig.supylabel("Frequency")
+    fig.tight_layout()
+    
+    #plt.savefig('l2_norm_finetune_root_leaf.png')
+    plt.show()
+
+
 
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     #premise_model = SentenceTransformer(args.model).to(device)
+    #./checkpoints/triplet_adjacent/
     query_model = SentenceTransformer(args.model).to(device)
     if args.model_path:
         print("Loading query model from checkpoint...")
         query_model = SentenceTransformer(args.model).to(device)
         query_model.load_state_dict(torch.load(args.model_path))
     # evaluate(query_model, query_model, split=args.split, debug=args.debug)
-    retrieve(query_model)
+    # retrieve(query_model)
+
+    # L2 norm of premise-pool, test data from 3 baseline models
+    genL2report(query_model)
 
 
 if __name__ == "__main__":
