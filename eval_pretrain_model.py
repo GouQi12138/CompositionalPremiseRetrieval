@@ -244,7 +244,7 @@ def retrieve(premise_model):
         if count >= 20:
             break
 
-def genL2report(model):
+def genL2report(model, fig_filename):
     hypo_to_premises = load_target_dict("test")
     premise_pool = load_premise_pool()
 
@@ -274,14 +274,14 @@ def genL2report(model):
     print(prem_pool_norm.mean())
     print(hypo_norm.mean())
     print(prems_norm.mean())
-    print(hypo_norm[:20])
+    print(hypo_norm[:6])
 
-    bins = np.arange(0, 2, 0.01)
+    bins = np.arange(0, 5, 0.01)
 
     # Generate histogram
     #https://stackoverflow.com/questions/26218704/matplotlib-histogram-with-collection-bin-for-high-values
     fig, axes = plt.subplots(1, 3, sharey=True, sharex=True, figsize=(12, 5))
-    plt.setp(axes, ylim=(0, 100))
+    plt.setp(axes, ylim=(0, 10))
 
     axes[0].hist(np.clip(prem_pool_norm, bins[0], bins[-1]), bins=bins, density=True, label='Premise Pool')
     axes[0].legend(loc='upper right')
@@ -297,8 +297,9 @@ def genL2report(model):
     fig.supylabel("Frequency")
     fig.tight_layout()
     
-    #plt.savefig('l2_norm_finetune_root_leaf.png')
-    plt.show()
+    print("Saving figure...")
+    plt.savefig(fig_filename)   #'l2_norm_finetune_adjacent.png' #finetune_root_leaf
+    #plt.show()
 
 
 
@@ -314,8 +315,11 @@ def main(args):
     # evaluate(query_model, query_model, split=args.split, debug=args.debug)
     # retrieve(query_model)
 
+    # remove the last Normalization layer
+    query_model = SentenceTransformer(modules=[query_model[0], query_model[1]]).to(device)
+
     # L2 norm of premise-pool, test data from 3 baseline models
-    genL2report(query_model)
+    genL2report(query_model, args.fig_filename)
 
 
 if __name__ == "__main__":
@@ -326,6 +330,7 @@ if __name__ == "__main__":
                             best semantic search model: multi-qa-mpnet-base-dot-v1 (https://huggingface.co/sentence-transformers/multi-qa-mpnet-base-dot-v1))")
     parser.add_argument("--model-path", type=str, help="specify to evaluate a specific query model")
     parser.add_argument("--split", type=str, default="test", help="data split to evaluate on (train, dev, test)")
+    parser.add_argument("--fig-filename", type=str)
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
