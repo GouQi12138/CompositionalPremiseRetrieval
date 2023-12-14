@@ -46,9 +46,10 @@ def main(args):
 
 
     # Process data format
-    train_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.train_data), contrastive=False)
-    reg_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.train_data), contrastive=True)
-    val_dataset = CompositionalEvalDataset(os.path.join(os.getcwd(), args.val_data))
+    #train_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.train_data), contrastive=False) TODO: replace with train
+    train_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.val_data), contrastive=False)
+    reg_dataset = CompositionalDataset(contrastive=True, dict=train_dataset)
+    val_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.val_data), contrastive=True)
 
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     reg_dataloader = DataLoader(reg_dataset, batch_size=args.batch_size, shuffle=True)
@@ -95,8 +96,8 @@ if __name__ == "__main__":
                         help="pre-trained model, ./checkpoints/triplet_adjacent or root_leaf \
                             (best general purpose model: all-mpnet-base-v2 (https://huggingface.co/sentence-transformers/all-mpnet-base-v2); \
                             best semantic search model: multi-qa-mpnet-base-dot-v1 (https://huggingface.co/sentence-transformers/multi-qa-mpnet-base-dot-v1))")
-    parser.add_argument("--train-data", type=str, default="data/processed_pairwise/pairwise_data_train_triplet_root_leaf_cross_join.tsv") # TODO: replace with compositional data
-    parser.add_argument("--val-data", type=str, default="data/processed_pairwise/pairwise_data_dev_triplet_root_leaf_cross_join.tsv")
+    parser.add_argument("--train-data", type=str, default="data/processed_compositional/compositional_data_train_dict_adjacent_cross_join")
+    parser.add_argument("--val-data", type=str, default="data/processed_compositional/compositional_data_dev_dict_adjacent_cross_join")
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=8)
     parser.add_argument("--learning-rate", type=float, default=1e-6) # 2e-5
