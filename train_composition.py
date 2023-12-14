@@ -16,8 +16,8 @@ from sentence_transformers import losses
 from dataloader.pairwise_dataloader import PairwiseDataset, TripletDataset, TripletEvalDataset
 from dataloader.compositional_dataloader import CompositionalDataset, CompositionalEvalDataset
 from dataloader.premise_pool_loader import load_premise_pool
-from eval_pretrain_model import evaluate
-
+from evaluation.eval_baseline_model import evaluate
+from util.compositional_loss_evaluator import CompositionalLossEvaluator
 from util.loss_functions import CompositionalLoss, ContrastiveRegLoss
 
 
@@ -46,13 +46,13 @@ def main(args):
 
 
     # Process data format
-    #train_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.train_data), contrastive=False) TODO: replace with train
+    #train_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.train_data), contrastive=False) TODO: replace with train, parallel dataloader, batch size
     train_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.val_data), contrastive=False)
     reg_dataset = CompositionalDataset(contrastive=True, dict=train_dataset)
     val_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.val_data), contrastive=True)
 
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    reg_dataloader = DataLoader(reg_dataset, batch_size=args.batch_size, shuffle=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+    reg_dataloader = DataLoader(reg_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
     #val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
 
 
@@ -64,19 +64,20 @@ def main(args):
     train_loss = CompositionalLoss(model=model, batch=args.batch_size)
     reg_loss = ContrastiveRegLoss(model=model, batch=args.batch_size)
 
+    #val_loss = ContrastiveRegLoss(model=model, batch=args.batch_size, triplet_margin=0)
 
     # Evaluator
     # DP retrieval is too expensive; consider:
     # validation loss
     # regularization loss
     # DP retrieval on task2
-    evaluator = RerankingEvaluator(val_dataset)
+    evaluator = CompositionalLossEvaluator(val_dataset)
     
 
     # Train
     model.fit(train_objectives=[(train_dataloader, train_loss), (reg_dataloader, reg_loss)],
                     evaluator=evaluator,
-                    evaluation_steps=10000,
+                    evaluation_steps=500000,
                     epochs=args.epochs,
                     #optimizer_params={'lr': args.learning_rate},
                     output_path=args.save_dir)
