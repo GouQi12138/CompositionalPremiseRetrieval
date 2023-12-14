@@ -45,7 +45,6 @@ def gen_labels_and_scores(hypo_to_premises, index, query_model, debug=False):
         if debug:
             print("Query Embedding:")
             print(query_embedding)
-        # similarity_scores = index.get_similarity_scores(query_embedding)
         similarity_scores = index.get_relative_scores(query_embedding, debug=debug)
         scores.append(similarity_scores)
     gt_labels = np.stack(gt_labels)
@@ -179,33 +178,14 @@ def compute_hit_at_k_v2(hypo_to_premises, index, scores, debug=False):
 
 def evaluate_model(query_model, index, hypo_to_premises, faissIndex, debug=False):
 
-    # Solve Knapsack problem:
-    # https://developers.google.com/optimization/pack/knapsack
-    # https://developers.google.com/optimization/reference/python/algorithms/pywrapknapsack_solver
-    # https://pyeasyga.readthedocs.io/en/latest/examples.html
-    # Get top-k chains, where k is the number of premises in the corpus for fair comparison against non chain methods
-        # No it won't be a fair comparison. Maybe return like the number of premises rounded up
-        # Unfortunately won't be a fair comparison because the number of premises being evaluated is inconsistent
-            # To make it fair, would need to keep the number of premises the same between the two
-            # Unless I can ensure that the algorithm returns solutions until it encapsulates all of the premises
-    # But how do we deal with repeated premises?
-        # Either we ignore repeated premises, or we just evaluate each chain
-
-    # Options for similarity: - don't need this
-    # s = 1 - d/d_max; this retains the distribution; from https://journals.ametsoc.org/view/journals/mwre/129/3/1520-0493_2001_129_0540_edaasm_2.0.co_2.xml
-    # change to s = max(1 - d/d_max, 0)
-    # s = np.exp(-D * gamma), where one heuristic for choosing gamma is 1 / num_features; from https://scikit-learn.org/stable/modules/metrics.html#metrics; this will change the distribution
-
-    # How to get similarity for each premise within a set?
-
     print("Evaluating...")
     query_model.eval()
-    gt_labels, scores = gen_labels_and_scores(hypo_to_premises, index, query_model, debug=debug)  # scores is not confidence/similarity scores, but ranking scores
+    gt_labels, scores = gen_labels_and_scores(hypo_to_premises, index, query_model, debug=debug)  # scores is not confidence/similarity scores, but relative ranking scores
     if debug:
         print("Scores")
         print(scores)
 
-    prec_full_rec = compute_precision_at_full_recall(hypo_to_premises, faissIndex, query_model)  # XXX: pass relative rankings into here
+    prec_full_rec = compute_precision_at_full_recall(hypo_to_premises, faissIndex, query_model)
 
     map_ = average_precision_score(gt_labels, scores, average="samples")  # Okay for scores to be relative rankings, will not estimate AP
     if debug:
