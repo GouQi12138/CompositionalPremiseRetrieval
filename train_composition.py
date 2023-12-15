@@ -19,6 +19,7 @@ from dataloader.premise_pool_loader import load_premise_pool
 from evaluation.eval_baseline_model import evaluate
 from util.compositional_loss_evaluator import CompositionalLossEvaluator
 from util.loss_functions import CompositionalLoss, ContrastiveRegLoss
+from util.sbert_mod import raw_batching_collate
 
 
 
@@ -46,14 +47,15 @@ def main(args):
 
 
     # Process data format
-    #train_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.train_data), contrastive=False) TODO: replace with train, parallel dataloader, batch size
-    train_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.val_data), contrastive=False)
+    train_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.train_data), contrastive=False)
+    # TODO: replace with train, parallel dataloader, batch size
+    # train_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.val_data), contrastive=False)
     reg_dataset = CompositionalDataset(contrastive=True, dict=train_dataset)
     val_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.val_data), contrastive=True)
 
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
-    reg_dataloader = DataLoader(reg_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
-    #val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1)
+    reg_dataloader = DataLoader(reg_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1)
+    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=1, collate_fn=raw_batching_collate)
 
 
     # info NCE loss
@@ -71,7 +73,7 @@ def main(args):
     # validation loss
     # regularization loss
     # DP retrieval on task2
-    evaluator = CompositionalLossEvaluator(val_dataset)
+    evaluator = CompositionalLossEvaluator(val_dataloader)
     
 
     # Train

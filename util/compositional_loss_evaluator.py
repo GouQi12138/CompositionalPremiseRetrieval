@@ -4,7 +4,7 @@ import logging
 import os
 import csv
 from typing import List
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 import torch
 import torch.nn.functional as F
 
@@ -31,7 +31,7 @@ class CompositionalLossEvaluator(SentenceEvaluator):
     :param name: Name of the evaluator
     :param write_csv: Write results to CSV file
     """
-    def __init__(self, target_sentences: Dataset, teacher_model = None, show_progress_bar: bool = False, batch_size: int = 32, name: str = '', write_csv: bool = True):
+    def __init__(self, target_sentences: DataLoader, teacher_model = None, show_progress_bar: bool = False, batch_size: int = 32, name: str = '', write_csv: bool = True):
         #self.source_embeddings = teacher_model.encode(source_sentences, show_progress_bar=show_progress_bar, batch_size=batch_size, convert_to_numpy=True)
 
         self.target_sentences = target_sentences
@@ -54,6 +54,28 @@ class CompositionalLossEvaluator(SentenceEvaluator):
 
         sum = 0
         count = 0
+        for feats, label in self.target_sentences:
+            reps = [model.encode(feat, convert_to_tensor=True) for feat in feats]
+            #loss = self.loss_function(features, label).detach().cpu().numpy()
+            batch_size = reps[0].shape[0]
+            rep_hypo = reps[0]  # batch * 256
+            pos_reps = reps[1:(batch_size+1)] # batch
+            neg_reps = reps[(batch_size+1):]  # batch
+
+            # sum each path and stack paths
+            rep_pos = torch.stack([torch.sum(rep_pos, dim=0) for rep_pos in pos_reps], dim=0)   # batch * 256
+            rep_neg = torch.stack([torch.sum(rep_neg, dim=0) for rep_neg in neg_reps], dim=0)   # batch * 256
+
+            # compute loss
+            pos_dist = F.mse_loss(rep_hypo, rep_pos, reduction='none').sum(dim=1)
+            neg_dist = F.mse_loss(rep_hypo, rep_neg, reduction='none').sum(dim=1)
+
+            loss = F.relu(pos_dist - neg_dist).mean().cpu().numpy()
+
+            sum += loss
+            count += 1
+
+        """
         for triplet in tqdm(self.target_sentences):
             #{'query': 'sent', 'positive': ['sents', 'x'], 'negative': ['y', 'z']}
             rep_hypo = model.encode(triplet['query'], convert_to_numpy=False)
@@ -70,6 +92,7 @@ class CompositionalLossEvaluator(SentenceEvaluator):
 
             sum += loss
             count += 1
+        """
 
         mse = sum / count
         mse *= 100

@@ -1,5 +1,5 @@
 # changing sbert's data collection function
-def raw_batching_collate(self, batch):
+def raw_batching_collate(batch):
     text_list = [[]]
     labels = []
 
@@ -16,11 +16,14 @@ def raw_batching_collate(self, batch):
             text_list.append(example["negative"])
             labels.append(1)
 
+    """
     labels = torch.tensor(labels)
 
     features = []
     for texts in text_list:
         tokenized = self.tokenize(texts)
         features.append(tokenized)
+    """
+    features = text_list
 
     return features, labels
