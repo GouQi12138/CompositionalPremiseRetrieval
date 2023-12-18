@@ -2,6 +2,7 @@ name: cpr
 channels:
   - pytorch
   - nvidia
+  - conda-forge
   - defaults
 dependencies:
   - _libgcc_mutex=0.1=main
@@ -9,8 +10,8 @@ dependencies:
   - blas=1.0=mkl
   - brotli-python=1.0.9=py310h6a678d5_7
   - bzip2=1.0.8=h7b6447c_0
-  - ca-certificates=2023.08.22=h06a4308_0
-  - certifi=2023.11.17=py310h06a4308_0
+  - ca-certificates=2023.11.17=hbcca054_0
+  - certifi=2023.11.17=pyhd8ed1ab_0
   - cffi=1.16.0=py310h5eee18b_0
   - cryptography=41.0.3=py310hdda0065_0
   - cuda-cudart=11.8.89=0
@@ -45,13 +46,17 @@ dependencies:
   - libfaiss=1.7.4=h13c3c6d_0_cuda11.4
   - libffi=3.4.4=h6a678d5_0
   - libgcc-ng=11.2.0=h1234567_1
+  - libgfortran-ng=13.2.0=h69a702a_0
+  - libgfortran5=13.2.0=ha4646dd_0
   - libgomp=11.2.0=h1234567_1
   - libiconv=1.16=h7f8727e_2
   - libidn2=2.3.4=h5eee18b_0
   - libjpeg-turbo=2.0.0=h9bf148f_0
   - libnpp=11.8.0.86=0
   - libnvjpeg=11.9.0.86=0
+  - libosqp=0.6.3=h6a678d5_0
   - libpng=1.6.39=h5eee18b_0
+  - libqdldl=0.1.7=h6a678d5_0
   - libstdcxx-ng=11.2.0=h1234567_1
   - libtasn1=4.19.0=h5eee18b_0
   - libtiff=4.5.1=h6a678d5_0
@@ -74,7 +79,10 @@ dependencies:
   - openh264=2.1.1=h4ff587b_0
   - openjpeg=2.4.0=h3ad879b_0
   - openssl=3.0.12=h7f8727e_0
+  - packaging=23.2=pyhd8ed1ab_0
   - pip=23.3.1=py310h06a4308_0
+  - platformdirs=4.1.0=pyhd8ed1ab_0
+  - pooch=1.8.0=pyhd8ed1ab_0
   - pycparser=2.21=pyhd3eb1b0_0
   - pyopenssl=23.2.0=py310h06a4308_0
   - pysocks=1.7.1=py310h06a4308_0
@@ -83,6 +91,7 @@ dependencies:
   - pytorch-cuda=11.8=h7e8668a_5
   - pytorch-mutex=1.0=cuda
   - pyyaml=6.0.1=py310h5eee18b_0
+  - qdldl-python=0.1.7=py310h1128e8f_0
   - readline=8.2=h5eee18b_0
   - requests=2.31.0=py310h06a4308_0
   - setuptools=68.0.0=py310h06a4308_0
@@ -126,13 +135,14 @@ dependencies:
       - nvidia-nccl-cu12==2.18.1
       - nvidia-nvjitlink-cu12==12.3.101
       - nvidia-nvtx-cu12==12.1.105
-      - packaging==23.2
+      - osqp==1.0.0b1
       - pandas==2.1.3
       - pillow==10.1.0
       - prettytable==3.9.0
       - pyparsing==3.1.1
       - python-dateutil==2.8.2
       - pytz==2023.3.post1
+      - qdldl==0.1.7.post0
       - regex==2023.10.3
       - safetensors==0.4.1
       - scikit-learn==1.3.2

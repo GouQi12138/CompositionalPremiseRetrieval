@@ -32,7 +32,7 @@ def check_map(gt_labels, scores):
 ### HELPER FUNCTIONS ###
 
 
-def gen_labels_and_scores(hypo_to_premises, index, query_model, debug=False):
+def gen_labels_and_scores(hypo_to_premises, index, query_model, solver, debug=False):
     # Encode each query
     # Generate relative ranking for all the premises for each query
     gt_labels = []
@@ -42,10 +42,7 @@ def gen_labels_and_scores(hypo_to_premises, index, query_model, debug=False):
         gt_labels.append(gt_premise_indices)
         with torch.no_grad():
             query_embedding = query_model.encode(query)
-        if debug:
-            print("Query Embedding:")
-            print(query_embedding)
-        similarity_scores = index.get_relative_scores(query_embedding, debug=debug)
+        similarity_scores = index.get_relative_scores(query_embedding, solver=solver, debug=debug)
         scores.append(similarity_scores)
     gt_labels = np.stack(gt_labels)
     scores = np.concatenate(scores)
@@ -68,6 +65,7 @@ def k_at_recall(premises, predictions, recall_level=1):
         if items_left == 0:
             return k
     raise Exception("Not all premises are retrieved")
+
 
 def compute_precision_at_full_recall(hypo_to_premises, faissIndex, query_model=None):
     # Precision at full recall is the average of the precision values at each recall threshold
@@ -176,11 +174,11 @@ def compute_hit_at_k_v2(hypo_to_premises, index, scores, debug=False):
     return hit_10, hit_20, hit_30, hit_40, hit_50
 
 
-def evaluate_model(query_model, index, hypo_to_premises, faissIndex, debug=False):
+def evaluate_model(query_model, index, hypo_to_premises, faissIndex, solver, debug=False):
 
     print("Evaluating...")
     query_model.eval()
-    gt_labels, scores = gen_labels_and_scores(hypo_to_premises, index, query_model, debug=debug)  # scores is not confidence/similarity scores, but relative ranking scores
+    gt_labels, scores = gen_labels_and_scores(hypo_to_premises, index, query_model, solver, debug=debug)  # scores is not confidence/similarity scores, but relative ranking scores
     if debug:
         print("Scores")
         print(scores)
@@ -205,7 +203,7 @@ def evaluate_model(query_model, index, hypo_to_premises, faissIndex, debug=False
     return prec_full_rec, map_, ndcg, ndcg_10, ndcg_20, ndcg_30, ndcg_40, ndcg_50, hit_10, hit_20, hit_30, hit_40, hit_50
 
 
-def evaluate(premise_model, query_model, split="test", debug=False):
+def evaluate(premise_model, query_model, solver, split="test", debug=False):
     hypo_to_premises = load_target_dict(split)
     premise_pool = load_premise_pool()
     if args.debug:
@@ -222,7 +220,7 @@ def evaluate(premise_model, query_model, split="test", debug=False):
     current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     print("Indexing Done", current_time)
     
-    res = evaluate_model(query_model, index, hypo_to_premises, faissIndex, debug=debug)
+    res = evaluate_model(query_model, index, hypo_to_premises, faissIndex, solver, debug=debug)
     tab = PrettyTable()
     tab.field_names = ["Prec@Full Recall", "MAP", "NDCG", "NDCG@10", "NDCG@20", "NDCG@30", "NDCG@40", "NDCG@50", "Hit@10", "Hit@20", "Hit@30", "Hit@40", "Hit@50"]
     tab.add_row(["{0:0.3f}".format(i) for i in res])
@@ -255,7 +253,7 @@ def main(args):
     if not args.debug:
         print("Loading model from checkpoint...")
         model.load_state_dict(torch.load(args.model_path))
-    evaluate(model, model, split=args.split, debug=args.debug)
+    evaluate(model, model, args.solver, split=args.split, debug=args.debug)
     if args.debug:
         retrieve(model)
 
@@ -267,6 +265,7 @@ if __name__ == "__main__":
                             (best general purpose model: all-mpnet-base-v2 (https://huggingface.co/sentence-transformers/all-mpnet-base-v2); \
                             best semantic search model: multi-qa-mpnet-base-dot-v1 (https://huggingface.co/sentence-transformers/multi-qa-mpnet-base-dot-v1))")
     parser.add_argument("--model-path", type=str, help="model weights (used for both premise and query models)")
+    parser.add_argument("--solver", type=str, default="bb", help="solver to use to retrieve premise chains\n- bf: brute-force\n- bb: branch-and-bound (approximate solution)")
     parser.add_argument("--split", type=str, default="test", help="data split to evaluate on (train, dev, test)")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
