@@ -76,6 +76,8 @@ class MIOSQP(object):
         # Store bounds behavior for plotting
         # lowers = []
         # uppers = []
+        solutions = []
+        scores = []
 
         if work.settings['verbose']:
             # Print header
@@ -89,6 +91,20 @@ class MIOSQP(object):
 
             # 2) Solve relaxed problem in leaf
             leaf.solve()
+
+            # Save solution if
+            # Integer feasible
+            if (work.is_int_feas(leaf.x, leaf)):
+                solutions.append(leaf.x)
+                scores.append(leaf.lower)
+            # If integer solution satisfies linear constraints
+            else:
+                x_int = work.get_integer_solution(leaf.x)
+                if work.satisfies_lin_constraints(x_int,
+                                                  work.data.l, work.data.u):
+                    obj_int = work.data.compute_obj_val(x_int)
+                    solutions.append(x_int)
+                    scores.append(obj_int)
 
             # Check if maximum number of iterations reached
             # if (leaf.status == work.solver.constant('OSQP_MAX_ITER_REACHED')):
@@ -167,7 +183,7 @@ class MIOSQP(object):
             print("Elapsed time: %.4es" % self.work.run_time)
 
         # Return results
-        return Results(self.work.x, self.work.upper_glob,
+        return Results(self.work.x, solutions, self.work.upper_glob, scores,
                        self.work.run_time, self.work.status,
                        self.work.osqp_solve_time, self.work.osqp_iter_avg)
 
