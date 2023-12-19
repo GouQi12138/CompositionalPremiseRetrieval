@@ -5,7 +5,7 @@ import sys
 from sentence_transformers import SentenceTransformer
 
 from train_composition import gen_projection_model
-from eval_pretrain_model import genL2report
+from evaluation.eval_baseline_model import genL2report
 
 def evaluateCompositional(model, query_model):
     # Load data
@@ -31,6 +31,9 @@ def main(args):
     if args.model_path:
         print("Loading query model from checkpoint...")
         model.load_state_dict(torch.load(args.model_path))
+
+    if args.debug:
+        print(model)
     
     # evaluate(query_model, query_model, split=args.split, debug=args.debug)
     # retrieve(query_model)
@@ -39,7 +42,7 @@ def main(args):
     #query_model = SentenceTransformer(modules=[query_model[0], query_model[1]]).to(device)
 
     # Projection model
-    model = gen_projection_model(model, device)
+    #model = gen_projection_model(model, device)
 
     # L2 norm of premise-pool, test data from 3 baseline models
     genL2report(model, args.fig_filename)

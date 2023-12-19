@@ -14,6 +14,11 @@ import numpy as np
 # 4) test
 
 task1_all_files = {'dev':"../data/task_1/dev.jsonl", 'train':"../data/task_1/train.jsonl", 'test':"../data/task_1/test.jsonl"}
+task2_all_files = {
+        'dev':"../data/task_2/dev.jsonl",
+        'train':"../data/task_2/train.jsonl",
+        'test':"../data/task_2/test.jsonl"
+    }
 
 
 # --------- Evaluation data loader ----------
@@ -63,6 +68,27 @@ def parse_labels(problem_list, result_dict, core_concept=False):
         # Uniquely index hypothesis in evaluation setting, append all premises
         result_dict[hypothesis].update(premises)
 
+
+def load_pool_dict(target='test'):
+    """ Small premise pool for retrieval problem """
+    pool_dict = {}
+    data = load_jsonl(task2_all_files[target])
+
+    for tree in data:
+        hypothesis = tree['hypothesis']
+        sentences = []
+
+        for sentType, sent in tree['meta']['triples'].items():
+            if sentType.startswith("sent"):
+                sentences.append(process_string(sent))
+
+        if hypothesis not in pool_dict:
+            pool_dict[hypothesis] = set()
+
+        pool_dict[hypothesis].update(sentences)
+
+    return pool_dict
+
 # ----------------------------------------
 
 
@@ -90,12 +116,17 @@ def load_jsonl(file):
 
 
 if __name__ == "__main__":
-    premises = load_target_dict('train')
+    sentences = load_pool_dict()
+    premises = load_target_dict('test')
     print(type(premises))
     print(len(premises))
     for key, value in premises.items():
-        print(key)
-        print(value)
-        break
+        #print(key)
+        #print(value)
+        #break
+        for sent in value:
+            if sent not in sentences[key]:
+                raise Exception("Prem not in pool")
+    print("Check complete")
 
 

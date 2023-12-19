@@ -13,7 +13,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from prettytable import PrettyTable
 
-from dataloader.premise_evaluation_loader import load_target_dict
+from dataloader.premise_evaluation_loader import load_target_dict, load_pool_dict
 from dataloader.premise_pool_loader import load_premise_pool
 
 
@@ -115,7 +115,7 @@ def compute_hit_at_k(labels, predictions, k=10):
     # totaled over all samples
     for label, prediction in zip(labels, predictions):
         # look in top-k predictions
-        for i in range(k):
+        for i in range(min(k, len(prediction))):
             if prediction[i] in label:
                 hit += 1
         total += len(label)
@@ -150,12 +150,24 @@ def evaluate_metrics(labels, one_hot_labels, pred_scores):
     #                    [0, 1, 0, 0]])
     #y_scores = np.array([[0.1, 0.4, 0.35, 0.8],
     #                    [0.6, 0.9, 0.3, 0.1]])
-    result.append(average_precision_score(one_hot_labels, pred_scores, average='samples'))
+    #result.append(average_precision_score(one_hot_labels, pred_scores, average='samples'))
+    map_list = []
+    for one_hot_label, pred_score in zip(one_hot_labels, pred_scores):
+        map_list.append(average_precision_score(one_hot_label, pred_score, average='samples'))
+    result.append(sum(map_list)/len(map_list))
 
     # "NDCG", "NDCG@10", "NDCG@20", "NDCG@30", "NDCG@40", "NDCG@50"
-    result.append(ndcg_score(one_hot_labels, pred_scores))
+    #result.append(ndcg_score(one_hot_labels, pred_scores))
+    ndcg_list = []
+    for one_hot_label, pred_score in zip(one_hot_labels, pred_scores):
+        ndcg_list.append(ndcg_score([one_hot_label], [pred_score]))
+    result.append(sum(ndcg_list)/len(ndcg_list))
     for k in [10, 20, 30, 40, 50]:
-        result.append(ndcg_score(one_hot_labels, pred_scores, k=k))
+        ndcg_list = []
+        for one_hot_label, pred_score in zip(one_hot_labels, pred_scores):
+            ndcg_list.append(ndcg_score([one_hot_label], [pred_score], k=k))
+        result.append(sum(ndcg_list)/len(ndcg_list))
+        #result.append(ndcg_score(one_hot_labels, pred_scores, k=k))
 
     # "Hit@10", "Hit@20", "Hit@30", "Hit@40", "Hit@50"
     for k in [10, 20, 30, 40, 50]:
@@ -164,10 +176,11 @@ def evaluate_metrics(labels, one_hot_labels, pred_scores):
     return result
 
 
-def main():
+def main(full_corpus = True):
     # Evaluate Tf-idf and BM-25
 
     hypo_to_prem = load_target_dict("test")
+    hypo_to_pool = load_pool_dict("test")
     premise_pool = load_premise_pool()
 
     # preprocessing
@@ -189,6 +202,15 @@ def main():
     bm25_scores = []
 
     for h in hypo_to_prem:
+
+        # ------ limited pool ------
+        if not full_corpus:
+            premise_pool = list(hypo_to_pool[h])
+            vectorizer, index = tfidf_index(premise_pool)
+            bm25 = bm25_index(premise_pool)
+            n = len(premise_pool)
+        # --------------------------
+
         label_index = []
         for p in hypo_to_prem[h]:
             label_index.append(premise_pool.index(p))
@@ -228,5 +250,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(False)
 

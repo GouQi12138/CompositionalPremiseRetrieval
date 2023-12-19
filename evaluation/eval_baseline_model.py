@@ -8,7 +8,7 @@ from sklearn.metrics import average_precision_score, ndcg_score
 from sentence_transformers import SentenceTransformer
 import torch
 
-from dataloader.premise_evaluation_loader import load_target_dict
+from dataloader.premise_evaluation_loader import load_target_dict, load_pool_dict
 from dataloader.premise_pool_loader import load_premise_pool
 from index import *
 import time
@@ -140,14 +140,15 @@ def compute_hit_at_k_v2(hypo_to_premises, index, scores, debug=False):
     for i, query in enumerate(hypo_to_premises):
         gt_premise_indices = index.get_gt_premises(query)
         query_score = scores[i]
-        top_ind = np.argpartition(query_score, -50)[-50:]
+        n = min(50, len(query_score))
+        top_ind = np.argpartition(query_score, -n)[-n:]
         sorted_top_ind = top_ind[np.argsort(query_score[top_ind])]
         num_matches_10 = 0
         num_matches_20 = 0
         num_matches_30 = 0
         num_matches_40 = 0
         num_matches_50 = 0
-        for j in range(50):
+        for j in range(n):
             if sorted_top_ind[j] in gt_premise_indices:
                 num_matches_50 += 1
                 if j > 9:
@@ -167,12 +168,12 @@ def compute_hit_at_k_v2(hypo_to_premises, index, scores, debug=False):
         if debug:
             if i == 1:
                 break
-    hit_10 = sum(hit_10_list)/sum(prem_count_list)
-    hit_20 = sum(hit_20_list)/sum(prem_count_list)
-    hit_30 = sum(hit_30_list)/sum(prem_count_list)
-    hit_40 = sum(hit_40_list)/sum(prem_count_list)
-    hit_50 = sum(hit_50_list)/sum(prem_count_list)
-    return hit_10, hit_20, hit_30, hit_40, hit_50
+    hit_10 = sum(hit_10_list)#/sum(prem_count_list)
+    hit_20 = sum(hit_20_list)#/sum(prem_count_list)
+    hit_30 = sum(hit_30_list)#/sum(prem_count_list)
+    hit_40 = sum(hit_40_list)#/sum(prem_count_list)
+    hit_50 = sum(hit_50_list)#/sum(prem_count_list)
+    return hit_10, hit_20, hit_30, hit_40, hit_50, sum(prem_count_list)
 
 
 def evaluate_pretrained_model(query_model, index, hypo_to_premises, faissIndex, debug=False):
@@ -193,23 +194,190 @@ def evaluate_pretrained_model(query_model, index, hypo_to_premises, faissIndex, 
     ndcg_40 = ndcg_score(gt_labels, scores, k=40)
     ndcg_50 = ndcg_score(gt_labels, scores, k=50)
 
-    hit_10, hit_20, hit_30, hit_40, hit_50 = compute_hit_at_k_v2(hypo_to_premises, index, scores, debug=debug)
+    hit_10, hit_20, hit_30, hit_40, hit_50, count_sum = compute_hit_at_k_v2(hypo_to_premises, index, scores, debug=debug)
 
-    return prec_full_rec, map_, ndcg, ndcg_10, ndcg_20, ndcg_30, ndcg_40, ndcg_50, hit_10, hit_20, hit_30, hit_40, hit_50
+    return [prec_full_rec, map_, ndcg, ndcg_10, ndcg_20, ndcg_30, ndcg_40, ndcg_50, hit_10, hit_20, hit_30, hit_40, hit_50, count_sum]
+
+"""
+
+def k_at_recall(premises, predictions, recall_level=1):
+    # Recall is the number of relevant documents retrieved divided by the total number of relevant documents
+    # Relevant documents are those that are in the ground truth
+    # Retrieved documents are those that are in the top K samples
+    items_left = len(premises)
+    k = 0
+    for idx in predictions:
+        k += 1
+        if idx in premises:
+            items_left -= 1
+        if items_left == 0:
+            return k
+
+    raise Exeption("Not all premises are retrieved")
+    return -1
+
+def compute_hit_at_k(labels, predictions, k=10):
+    # in top-k results, calculate relevant items retrieved / total number of relevants
+    hit = 0
+    total = 0
+    # totaled over all samples
+    for label, prediction in zip(labels, predictions):
+        # look in top-k predictions
+        for i in range(min(k, len(prediction))):
+            if prediction[i] in label:
+                hit += 1
+        total += len(label)
+    return hit/total
+
+def evaluate_metrics(labels, one_hot_labels, pred_scores):
+    result = []
+
+    # Rank the documents based on their similarity scores
+    ranked_indices = []
+    for scores in pred_scores:
+        ranked_documents = [(score, idx) for score, idx in zip(scores, range(len(scores)))]
+        ranked_documents = sorted(ranked_documents, reverse=True)
+
+        ranked_index = []
+        for score, idx in ranked_documents:
+            ranked_index.append(idx)
+
+        ranked_indices.append(ranked_index)
+
+    # "Prec@Full Recall"
+    prec_rec_list = []
+    for label, ranked_index in zip(labels, ranked_indices):
+        num_relevant_docs = len(label)
+        num_retrieved_docs = k_at_recall(label, ranked_index)
+        prec_rec_list.append(num_relevant_docs/num_retrieved_docs)
+    precision_at_full_recall = sum(prec_rec_list)/len(prec_rec_list)
+    result.append(precision_at_full_recall)
+
+    # "MAP"
+    #y_true = np.array([[0, 0, 1, 1],
+    #                    [0, 1, 0, 0]])
+    #y_scores = np.array([[0.1, 0.4, 0.35, 0.8],
+    #                    [0.6, 0.9, 0.3, 0.1]])
+    #result.append(average_precision_score(one_hot_labels, pred_scores, average='samples'))
+    map_list = []
+    for one_hot_label, pred_score in zip(one_hot_labels, pred_scores):
+        map_list.append(average_precision_score(one_hot_label, pred_score, average='samples'))
+    result.append(sum(map_list)/len(map_list))
+
+    # "NDCG", "NDCG@10", "NDCG@20", "NDCG@30", "NDCG@40", "NDCG@50"
+    #result.append(ndcg_score(one_hot_labels, pred_scores))
+    ndcg_list = []
+    for one_hot_label, pred_score in zip(one_hot_labels, pred_scores):
+        ndcg_list.append(ndcg_score([one_hot_label], [pred_score]))
+    result.append(sum(ndcg_list)/len(ndcg_list))
+    for k in [10, 20, 30, 40, 50]:
+        ndcg_list = []
+        for one_hot_label, pred_score in zip(one_hot_labels, pred_scores):
+            ndcg_list.append(ndcg_score([one_hot_label], [pred_score], k=k))
+        result.append(sum(ndcg_list)/len(ndcg_list))
+        #result.append(ndcg_score(one_hot_labels, pred_scores, k=k))
+
+    # "Hit@10", "Hit@20", "Hit@30", "Hit@40", "Hit@50"
+    for k in [10, 20, 30, 40, 50]:
+        result.append(compute_hit_at_k(labels, ranked_indices, k=k))
+
+    return result
 
 
-def evaluate(premise_model, query_model, split="test", debug=False):
-    hypo_to_premises = load_target_dict(split)
+def evaluate_model(model, full_corpus = True):
+    # Evaluate Tf-idf and BM-25
+
+    hypo_to_prem = load_target_dict("test")
+    hypo_to_pool = load_pool_dict("test")
     premise_pool = load_premise_pool()
 
-    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    print("Start Indexing...", current_time)
-    index = Index(hypo_to_premises, premise_pool, premise_model)
-    faissIndex = FaissIndex(hypo_to_premises, premise_pool, premise_model)
-    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    print("Indexing Done", current_time)
-    
-    res = evaluate_pretrained_model(query_model, index, hypo_to_premises, faissIndex, debug=debug)
+    # preprocessing
+    for h in hypo_to_prem:
+        for p in hypo_to_prem[h]:
+            if p not in premise_pool:
+                premise_pool.append(p)
+
+    n = len(premise_pool)
+
+    # build indexing
+    index = FaissIndex(hypo_to_prem, premise_pool, model)
+
+    label_indices = []
+    one_hot_labels = []
+    pred_scores = []
+
+    for h in hypo_to_prem:
+
+        # ------ limited pool ------
+        if not full_corpus:
+            premise_pool = list(hypo_to_pool[h])
+            index = FaissIndex([{h:hypo_to_prem[h]}], premise_pool, model)
+            n = len(premise_pool)
+        # --------------------------
+
+        label_index = []
+        for p in hypo_to_prem[h]:
+            label_index.append(premise_pool.index(p))
+        one_hot = np.zeros(n, dtype=int)
+        np.put(one_hot, label_index, 1)
+
+        tfidf_score, ranked_index = tfidf_query(vectorizer, index, h)
+        bm25_score = bm25_query(bm25, h)
+
+        label_indices.append(label_index)
+        one_hot_labels.append(one_hot)
+        tfidf_scores.append(tfidf_score)
+        bm25_scores.append(bm25_score)
+
+    # run evaluations
+    res = evaluate_metrics(label_indices, one_hot_labels, pred_scores)
+    tab = PrettyTable()
+    tab.field_names = ["Prec@Full Recall", "MAP", "NDCG", "NDCG@10", "NDCG@20", "NDCG@30", "NDCG@40", "NDCG@50", "Hit@10", "Hit@20", "Hit@30", "Hit@40", "Hit@50"]
+    tab.add_row(["{0:0.3f}".format(i) for i in res])
+    print(tab)
+
+"""
+
+def evaluate(premise_model, query_model, split="test", debug=False, full_corpus=True):
+    hypo_to_premises = load_target_dict(split)
+    hypo_to_pool = load_pool_dict(split)
+    premise_pool = load_premise_pool()
+
+    if full_corpus:
+        current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        print("Start Indexing...", current_time)
+        index = Index(hypo_to_premises, premise_pool, premise_model)
+        faissIndex = FaissIndex(hypo_to_premises, premise_pool, premise_model)
+        current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        print("Indexing Done", current_time)
+
+    res = None
+    count = 0
+    # run evaluations
+    for h in hypo_to_premises:
+        hypo_to_prem = {h : hypo_to_premises[h]}
+        # ------ limited pool ------
+        if not full_corpus:
+            premise_pool = list(hypo_to_pool[h])
+            index = Index(hypo_to_prem, premise_pool, premise_model)
+            faissIndex = FaissIndex(hypo_to_prem, premise_pool, premise_model)
+        # --------------------------
+        result = evaluate_pretrained_model(query_model, index, hypo_to_prem, faissIndex, debug=debug)
+        if res is None:
+            res = result
+            count = 1
+        else:
+            for i in range(len(result)):
+                res[i] += result[i]
+            count += 1
+
+    for i in range(8):
+        res[i] /= count
+    for i in range(8, 13):
+        res[i] /= res[-1]
+
+    res = res[:-1]
+
     tab = PrettyTable()
     tab.field_names = ["Prec@Full Recall", "MAP", "NDCG", "NDCG@10", "NDCG@20", "NDCG@30", "NDCG@40", "NDCG@50", "Hit@10", "Hit@20", "Hit@30", "Hit@40", "Hit@50"]
     tab.add_row(["{0:0.3f}".format(i) for i in res])
@@ -312,14 +480,14 @@ def main(args):
         print("Loading query model from checkpoint...")
         query_model = SentenceTransformer(args.model).to(device)
         query_model.load_state_dict(torch.load(args.model_path))
-    # evaluate(query_model, query_model, split=args.split, debug=args.debug)
+    evaluate(query_model, query_model, full_corpus=False)#, split=args.split, debug=args.debug)
     # retrieve(query_model)
 
     # remove the last Normalization layer
-    query_model = SentenceTransformer(modules=[query_model[0], query_model[1]]).to(device)
+    #query_model = SentenceTransformer(modules=[query_model[0], query_model[1]]).to(device)
 
     # L2 norm of premise-pool, test data from 3 baseline models
-    genL2report(query_model, args.fig_filename)
+    #genL2report(query_model, args.fig_filename)
 
 
 if __name__ == "__main__":
