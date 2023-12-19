@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 import torch.nn.functional as F
 
-import tqdm
+from tqdm import tqdm
 
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class CompositionalLossEvaluator(SentenceEvaluator):
 
         sum = 0
         count = 0
-        for feats, label in self.target_sentences:
+        for feats, label in tqdm(self.target_sentences):
             reps = [model.encode(feat, convert_to_tensor=True) for feat in feats]
             #loss = self.loss_function(features, label).detach().cpu().numpy()
             batch_size = reps[0].shape[0]

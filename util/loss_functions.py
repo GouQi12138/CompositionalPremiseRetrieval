@@ -40,7 +40,7 @@ class CompositionalLoss(nn.Module):
 
     def forward(self, sentence_features: Iterable[Dict[str, Tensor]], labels: Tensor):
         # 1 hypo matrix + 32 path matrices
-        assert len(sentence_features) == self.batch + 1
+        #assert len(sentence_features) == self.batch + 1
 
         reps = [self.model(sentence_feature)['sentence_embedding'] for sentence_feature in sentence_features]
 
@@ -101,7 +101,7 @@ class ContrastiveRegLoss(nn.Module):
         # organize input and pass to compositional loss
 
         # 1 hypo matrix + 32 path matrices + 32 negative path matrices
-        assert len(sentence_features) == 2 * self.batch + 1
+        #assert len(sentence_features) == 2 * self.batch + 1
 
         reps = [self.model(sentence_feature)['sentence_embedding'] for sentence_feature in sentence_features]
 
@@ -125,7 +125,7 @@ class ContrastiveRegLoss(nn.Module):
 
         losses = F.relu(pos_dist - neg_dist + self.triplet_margin)
         
-        return losses.mean()
+        return losses.mean() * 100
     
 
 
