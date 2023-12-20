@@ -77,9 +77,10 @@ class CompositionalDataset(Dataset):
         result['positive'] = [self.strings[idx] for idx in triplet[1]]
         # sample an index for distractor
         if self.contrastive:
-            negs = result['positive'].copy()
-            negs[random.choice(range(len(negs)))] = self.strings[random.choice(triplet[2])]
-            result['negative'] = negs
+            #negs = result['positive'].copy()
+            #negs[random.choice(range(len(negs)))] = self.strings[random.choice(triplet[2])]
+            #result['negative'] = negs
+            result['negative'] = [self.strings[idx] for idx in triplet[2]]
 
         return result
 
@@ -157,7 +158,7 @@ def generate_compositional_data(stage='train', format='dict', positive='adjacent
     # result = strings + indices
     #indices.append(strings)
 
-    result_file_name = "../data/processed_compositional/" + "compositional_data_" + "_".join([stage, format, positive, negative]) # + ".jsonl"
+    result_file_name = "../data/compositional/" + "compositional_data_" + "_".join([stage, format, positive, negative]) # + ".jsonl"
 
 
     # create premises for individual proof trees
@@ -229,7 +230,16 @@ def generate_compositional_data(stage='train', format='dict', positive='adjacent
 
             # --- append cross-joined samples to result ---
             for pair in pos_list:
-                add_to_list(pair+[neg_list],    strings, appears, indices)
+                hyp_sample = pair[0]
+                pos_sample = pair[1]
+                for neg in neg_list:
+                    # neg cross positive
+                    # replace each pos element by each neg element once
+                    for i in range(len(pos_sample)):
+                        neg_sample = pos_sample.copy()
+                        neg_sample[i] = neg
+                        sample = [hyp_sample, pos_sample, neg_sample]
+                        add_to_list(sample,    strings, appears, indices)
                 """
                 positives = pair[1]
                 # every pos item replaced once
@@ -259,8 +269,8 @@ def generate_compositional_data(stage='train', format='dict', positive='adjacent
 
 def search_positive_paths(proof_trees, node, path, sentences, pos_list):
     # Add current path
-    pos_list.append( [ sentences[node], [process_string(sentences[child]) for child in path] ] )
-
+    pos_list.append( [ sentences[node], [process_string(sentences[child]) if child.startswith('sent') else sentences[child] for child in path] ] )
+    return
     # DFS to get all paths
     for i in range(len(path)):
         curr = path[i]
@@ -324,14 +334,14 @@ def process_string(sent):
 # jsonl file loader
 def load_jsonl(file):
     data = []
-    prev_neg = []
+    #prev_neg = []
     file_path = Path(__file__).parent / file
     with open(file_path, 'r') as f:
         for line in f:
             item = json.loads(line)
-            if item[2] != prev_neg:
-                prev_neg = item[2]
-            item[2] = prev_neg
+            #if item[2] != prev_neg:
+            #    prev_neg = item[2]
+            #item[2] = prev_neg
             data.append(item)
     return data
 
@@ -357,12 +367,12 @@ def read_tsv(file):
 
 
 if __name__ == "__main__":
-    #generate_compositional_data(stage="train", positive="adjacent")
-    #generate_compositional_data(stage="dev", positive="adjacent")
-    #generate_compositional_data(stage="test", positive="adjacent")
+    generate_compositional_data(stage="train", positive="adjacent")
+    generate_compositional_data(stage="dev", positive="adjacent")
+    generate_compositional_data(stage="test", positive="adjacent")
     #generate_compositional_data(stage="train", positive="root_leaf")
     #generate_compositional_data(stage="dev", positive="root_leaf")
     #generate_compositional_data(stage="test", positive="root_leaf")
-    #print("Generation finished")
-    data = CompositionalDataset("../data/processed_compositional/compositional_data_train_dict_adjacent_cross_join")
+    print("Generation finished")
+    data = CompositionalDataset("../data/compositional/compositional_data_train_dict_adjacent_cross_join")
 

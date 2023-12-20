@@ -10,6 +10,7 @@ import torch.nn.functional as F
 
 from tqdm import tqdm
 
+from info_nce import InfoNCE, info_nce
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,8 @@ class CompositionalLossEvaluator(SentenceEvaluator):
         self.batch_size = batch_size
         self.name = name
 
+        self.loss = InfoNCE(negative_mode='paired')
+
         self.csv_file = "mse_diff_evaluation_" + name + "_results.csv"
         self.csv_headers = ["epoch", "steps", "MSE"]
         self.write_csv = write_csv
@@ -67,10 +70,13 @@ class CompositionalLossEvaluator(SentenceEvaluator):
             rep_neg = torch.stack([torch.sum(rep_neg, dim=0) for rep_neg in neg_reps], dim=0)   # batch * 256
 
             # compute loss
+            loss = self.loss(rep_hypo, rep_pos, rep_neg.unsqueeze(1)).cpu().numpy()
+            """
             pos_dist = F.mse_loss(rep_hypo, rep_pos, reduction='none').sum(dim=1)
             neg_dist = F.mse_loss(rep_hypo, rep_neg, reduction='none').sum(dim=1)
 
             loss = F.relu(pos_dist - neg_dist).mean().cpu().numpy()
+            """
 
             sum += loss
             count += 1

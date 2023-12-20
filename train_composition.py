@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import torch
+#torch.multiprocessing.set_sharing_strategy('file_system')
 from torch.utils.data import DataLoader
 from info_nce import InfoNCE, info_nce
 
@@ -35,27 +36,37 @@ def main(args):
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
+    # save arguments
+    arg_file = os.path.join(args.save_dir, "saved_args.log")
+    with open(arg_file, 'w') as f:
+        f.write(str(args))
+
     # Load Model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SentenceTransformer(args.model).to(device)
 
     # Projection model
-    model = gen_projection_model(model, device)
+    if args.new_model:
+        model = gen_projection_model(model, device)
 
     if args.debug:
         print(model)
+        print(device)
 
 
     # Process data format
     train_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.train_data), contrastive=False)
-    # TODO: replace with train, parallel dataloader, batch size
-    # train_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.val_data), contrastive=False)
     reg_dataset = CompositionalDataset(contrastive=True, dict=train_dataset)
-    val_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.val_data), contrastive=True)
+    if args.train_data == args.val_data:
+        workers = 5
+        val_dataset = reg_dataset
+    else:
+        workers = 5
+        val_dataset = CompositionalDataset(os.path.join(os.getcwd(), args.val_data), contrastive=True)
 
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1)
-    reg_dataloader = DataLoader(reg_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1)
-    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=1, collate_fn=raw_batching_collate)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=workers)
+    reg_dataloader = DataLoader(reg_dataset, batch_size=args.batch_size, shuffle=True, num_workers=workers)
+    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=workers, collate_fn=raw_batching_collate)
 
 
     # info NCE loss
@@ -63,7 +74,7 @@ def main(args):
     # Triplet loss
     #loss = losses.TripletLoss(model=query_model, distance_metric=losses.TripletDistanceMetric.COSINE, triplet_margin=0.001)
     
-    train_loss = CompositionalLoss(model=model, batch=args.batch_size)
+    train_loss = CompositionalLoss(model=model, batch=args.batch_size, norm=args.normalize_loss)
     reg_loss = ContrastiveRegLoss(model=model, batch=args.batch_size)
 
     #val_loss = ContrastiveRegLoss(model=model, batch=args.batch_size, triplet_margin=0)
@@ -79,8 +90,9 @@ def main(args):
     # Train
     model.fit(train_objectives=[(train_dataloader, train_loss), (reg_dataloader, reg_loss)],
                     evaluator=evaluator,
-                    evaluation_steps=500000,
+                    evaluation_steps=2000,
                     epochs=args.epochs,
+                    #scheduler='WarmupConstant',
                     #optimizer_params={'lr': args.learning_rate},
                     output_path=args.save_dir)
     
@@ -99,13 +111,16 @@ if __name__ == "__main__":
                         help="pre-trained model, ./checkpoints/triplet_adjacent or root_leaf \
                             (best general purpose model: all-mpnet-base-v2 (https://huggingface.co/sentence-transformers/all-mpnet-base-v2); \
                             best semantic search model: multi-qa-mpnet-base-dot-v1 (https://huggingface.co/sentence-transformers/multi-qa-mpnet-base-dot-v1))")
-    parser.add_argument("--train-data", type=str, default="data/processed_compositional/compositional_data_train_dict_adjacent_cross_join")
-    parser.add_argument("--val-data", type=str, default="data/processed_compositional/compositional_data_dev_dict_adjacent_cross_join")
+    parser.add_argument("--train-data", type=str, default="data/compositional/compositional_data_train_dict_adjacent_cross_join")
+    parser.add_argument("--val-data", type=str, default="data/compositional/compositional_data_dev_dict_adjacent_cross_join")
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=8)
     parser.add_argument("--learning-rate", type=float, default=1e-6) # 2e-5
     parser.add_argument("--save-dir", type=str, default="./checkpoints/compositional/", help="directory to save best model weights and loss curves in")
+    parser.add_argument("--new-model", action="store_true")
     parser.add_argument("--debug", action="store_true")
+
+    parser.add_argument("--normalize-loss", action="store_true", help="whether normalize main loss by hypo's magnitude")
     args = parser.parse_args()
 
     main(args)

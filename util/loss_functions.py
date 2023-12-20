@@ -30,10 +30,11 @@ class CompositionalLoss(nn.Module):
         train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=train_batch_size)
         train_loss = losses.TripletLoss(model=model)
     """
-    def __init__(self, model: SentenceTransformer, batch=16):
+    def __init__(self, model: SentenceTransformer, batch=16, norm=False):
         super(CompositionalLoss, self).__init__()
         self.model = model
         self.batch = batch
+        self.norm = norm
 
     def get_config_dict(self):
         return {}
@@ -49,13 +50,21 @@ class CompositionalLoss(nn.Module):
         # sum each path and stack paths
         rep_path = torch.stack([torch.sum(rep_path, dim=0) for rep_path in reps[1:]], dim=0)  # batch * 256
 
+        # normalize by size of hypo
+        norm_hypo = torch.norm(rep_hypo, dim=1) # batch
+
         # compute loss
         # dist(hypo - path)
         # https://stackoverflow.com/questions/76979995/pytorch-mse-loss-differs-from-direct-calculation-by-factor-of-2
         #losses = F.pairwise_distance(rep_hypo, rep_path, p=2).square().mean()   # mean over batch
-        losses = F.mse_loss(rep_hypo, rep_path, reduction='sum') / rep_hypo.shape[0]  # mean over batch  # equivalently
-        
-        return losses
+        losses = F.mse_loss(rep_hypo, rep_path, reduction='none').sum(dim=1)
+
+        if self.norm:
+            losses /= norm_hypo.sqrt()
+
+        losses = losses.mean()  #.sum() / rep_hypo.shape[0]  # mean over batch  # equivalently
+
+        return losses * 0.1
 
 
 
@@ -93,6 +102,7 @@ class ContrastiveRegLoss(nn.Module):
         self.triplet_margin = triplet_margin
         self.batch = batch
         #self.loss = CompositionalLoss(model)
+        self.loss = InfoNCE(negative_mode = "paired")
 
     def get_config_dict(self):
         return {}
@@ -120,12 +130,13 @@ class ContrastiveRegLoss(nn.Module):
         
         #pos_dist = F.pairwise_distance(rep_hypo, rep_pos, p=2).square()
         #neg_dist = F.pairwise_distance(rep_hypo, rep_neg, p=2).square()
-        pos_dist = F.mse_loss(rep_hypo, rep_pos, reduction='none').sum(dim=1)
-        neg_dist = F.mse_loss(rep_hypo, rep_neg, reduction='none').sum(dim=1)
+        #pos_dist = F.mse_loss(rep_hypo, rep_pos, reduction='none').sum(dim=1)
+        #neg_dist = F.mse_loss(rep_hypo, rep_neg, reduction='none').sum(dim=1)
 
-        losses = F.relu(pos_dist - neg_dist + self.triplet_margin)
+        #losses = F.relu(pos_dist - neg_dist + self.triplet_margin).mean()
+        losses = self.loss(rep_hypo, rep_pos, rep_neg.unsqueeze(1))
         
-        return losses.mean() * 100
+        return losses
     
 
 
