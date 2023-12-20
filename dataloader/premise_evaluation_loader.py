@@ -72,13 +72,14 @@ def parse_labels(problem_list, result_dict, core_concept=False):
 def load_pool_dict(target='test'):
     """ Small premise pool for retrieval problem """
     pool_dict = {}
-    data = load_jsonl(task2_all_files[target])
+    pos_data = load_jsonl(task1_all_files[target])
+    neg_data = load_jsonl(task2_all_files[target])
 
-    for tree in data:
-        hypothesis = tree['hypothesis']
+    for pos_tree in pos_data:
+        hypothesis = pos_tree['hypothesis']
         sentences = []
 
-        for sentType, sent in tree['meta']['triples'].items():
+        for sentType, sent in pos_tree['meta']['triples'].items():
             if sentType.startswith("sent"):
                 sentences.append(process_string(sent))
 
@@ -86,6 +87,21 @@ def load_pool_dict(target='test'):
             pool_dict[hypothesis] = set()
 
         pool_dict[hypothesis].update(sentences)
+
+    for neg_tree in neg_data:
+        hypothesis = neg_tree['hypothesis']
+        sentences = []
+
+        for sentType, sent in neg_tree['meta']['triples'].items():
+            if sentType.startswith("sent"):
+                sentences.append(process_string(sent))
+
+        if hypothesis not in pool_dict:
+            raise Exception("Neg tree not in dict")
+
+        for sentence in sentences:
+            if len(pool_dict[hypothesis]) < 25:
+                pool_dict[hypothesis].add(sentence)
 
     return pool_dict
 
@@ -120,13 +136,26 @@ if __name__ == "__main__":
     premises = load_target_dict('test')
     print(type(premises))
     print(len(premises))
+    count = {}
     for key, value in premises.items():
         #print(key)
         #print(value)
+        size = len(value)
+        if size in count:
+            count[size] += 1
+        else:
+            count[size] = 1
         #break
+        if len(sentences[key]) > 25:
+            print(len(sentences[key]))
+            raise Exception("Prem pool larger than 25")
         for sent in value:
             if sent not in sentences[key]:
                 raise Exception("Prem not in pool")
     print("Check complete")
+    for i in range(20):
+        if i in count:
+            print(i, ":", count[i])
+    print(count)
 
 

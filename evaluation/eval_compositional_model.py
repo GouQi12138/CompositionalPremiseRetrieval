@@ -7,9 +7,11 @@ from sklearn.metrics import average_precision_score, ndcg_score
 from sentence_transformers import SentenceTransformer
 import torch
 from tqdm import tqdm
+from itertools import product
 
-from dataloader.premise_evaluation_loader import load_target_dict
+from dataloader.premise_evaluation_loader import load_target_dict, load_pool_dict
 from dataloader.premise_pool_loader import load_premise_pool
+from train_composition import gen_projection_model
 from index import *
 import time
 
@@ -37,7 +39,8 @@ def gen_labels_and_scores(hypo_to_premises, index, query_model, solver, debug=Fa
     # Generate relative ranking for all the premises for each query
     gt_labels = []
     scores = []
-    for i, query in enumerate(tqdm(hypo_to_premises)):
+    # DEBUG: tqdm
+    for i, query in enumerate(hypo_to_premises):
         gt_premise_indices = index.get_gt_premises(query, one_hot=True)
         gt_labels.append(gt_premise_indices)
         with torch.no_grad():
@@ -139,14 +142,15 @@ def compute_hit_at_k_v2(hypo_to_premises, index, scores, debug=False):
     for i, query in enumerate(hypo_to_premises):
         gt_premise_indices = index.get_gt_premises(query)
         query_score = scores[i]
-        top_ind = np.argpartition(query_score, -50)[-50:]
+        n = min(50, len(query_score))
+        top_ind = np.argpartition(query_score, -n)[-n:]
         sorted_top_ind = top_ind[np.argsort(query_score[top_ind])]
         num_matches_10 = 0
         num_matches_20 = 0
         num_matches_30 = 0
         num_matches_40 = 0
         num_matches_50 = 0
-        for j in range(50):
+        for j in range(n):
             if sorted_top_ind[j] in gt_premise_indices:
                 num_matches_50 += 1
                 if j > 9:
@@ -166,17 +170,17 @@ def compute_hit_at_k_v2(hypo_to_premises, index, scores, debug=False):
         if debug:
             if i == 1:
                 break
-    hit_10 = sum(hit_10_list)/sum(prem_count_list)
-    hit_20 = sum(hit_20_list)/sum(prem_count_list)
-    hit_30 = sum(hit_30_list)/sum(prem_count_list)
-    hit_40 = sum(hit_40_list)/sum(prem_count_list)
-    hit_50 = sum(hit_50_list)/sum(prem_count_list)
-    return hit_10, hit_20, hit_30, hit_40, hit_50
+    hit_10 = sum(hit_10_list)#/sum(prem_count_list)
+    hit_20 = sum(hit_20_list)#/sum(prem_count_list)
+    hit_30 = sum(hit_30_list)#/sum(prem_count_list)
+    hit_40 = sum(hit_40_list)#/sum(prem_count_list)
+    hit_50 = sum(hit_50_list)#/sum(prem_count_list)
+    return hit_10, hit_20, hit_30, hit_40, hit_50, sum(prem_count_list)
 
 
 def evaluate_model(query_model, index, hypo_to_premises, faissIndex, solver, debug=False):
 
-    print("Evaluating...")
+    #print("Evaluating...")
     query_model.eval()
     gt_labels, scores = gen_labels_and_scores(hypo_to_premises, index, query_model, solver, debug=debug)  # scores is not confidence/similarity scores, but relative ranking scores
     if debug:
@@ -198,14 +202,17 @@ def evaluate_model(query_model, index, hypo_to_premises, faissIndex, solver, deb
     ndcg_50 = ndcg_score(gt_labels, scores, k=50)
 
     # Okay for score to be relative rankings for compute hit at k
-    hit_10, hit_20, hit_30, hit_40, hit_50 = compute_hit_at_k_v2(hypo_to_premises, index, scores, debug=debug)
+    hit_10, hit_20, hit_30, hit_40, hit_50, count_sum = compute_hit_at_k_v2(hypo_to_premises, index, scores, debug=debug)
 
-    return prec_full_rec, map_, ndcg, ndcg_10, ndcg_20, ndcg_30, ndcg_40, ndcg_50, hit_10, hit_20, hit_30, hit_40, hit_50
+    return [prec_full_rec, map_, ndcg, ndcg_10, ndcg_20, ndcg_30, ndcg_40, ndcg_50, hit_10, hit_20, hit_30, hit_40, hit_50, count_sum]
 
 
-def evaluate(premise_model, query_model, solver, split="test", debug=False):
+def evaluate(premise_model, query_model, solver, split="test", debug=False, full_corpus=False):
     hypo_to_premises = load_target_dict(split)
+    hypo_to_pool = load_pool_dict(split)
     premise_pool = load_premise_pool()
+    combinations = np.array([i for i in product(range(2), repeat=25) if sum(i)<=6])
+
     if args.debug:
         small_hypo_to_premises = {}
         for k in list(hypo_to_premises.keys())[:3]:
@@ -213,14 +220,39 @@ def evaluate(premise_model, query_model, solver, split="test", debug=False):
         hypo_to_premises = small_hypo_to_premises
         premise_pool = []
 
-    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    print("Start Indexing...", current_time)
-    index = Index(hypo_to_premises, premise_pool, premise_model)
-    faissIndex = FaissIndex(hypo_to_premises, premise_pool, premise_model)
-    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    print("Indexing Done", current_time)
+    if full_corpus:
+        current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        print("Start Indexing...", current_time)
+        index = Index(hypo_to_premises, premise_pool, premise_model)
+        faissIndex = FaissIndex(hypo_to_premises, premise_pool, premise_model)
+        current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        print("Indexing Done", current_time)
     
-    res = evaluate_model(query_model, index, hypo_to_premises, faissIndex, solver, debug=debug)
+    res = None  # evaluate_model(query_model, index, hypo_to_premises, faissIndex, solver, debug=debug)
+    count = 0
+    for h in tqdm(hypo_to_premises):
+        hypo_to_prem = {h : hypo_to_premises[h]}
+        # ------ limited pool ------
+        if not full_corpus:
+            premise_pool = list(hypo_to_pool[h])
+            index = Index(hypo_to_prem, premise_pool, premise_model, combinations[:, :len(premise_pool)])
+            faissIndex = FaissIndex(hypo_to_prem, premise_pool, premise_model)
+        # --------------------------
+        result = evaluate_model(query_model, index, hypo_to_prem, faissIndex, solver, debug=debug)
+        if res is None:
+            res = result
+            count = 1
+        else:
+            for i in range(len(result)):
+                res[i] += result[i]
+            count += 1
+
+    for i in range(8):
+        res[i] /= count
+    for i in range(8, 13):
+        res[i] /= res[-1]
+    res = res[:-1]
+
     tab = PrettyTable()
     tab.field_names = ["Prec@Full Recall", "MAP", "NDCG", "NDCG@10", "NDCG@20", "NDCG@30", "NDCG@40", "NDCG@50", "Hit@10", "Hit@20", "Hit@30", "Hit@40", "Hit@50"]
     tab.add_row(["{0:0.3f}".format(i) for i in res])
@@ -250,12 +282,18 @@ def retrieve(premise_model):
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SentenceTransformer(args.model).to(device)
-    if not args.debug:
-        print("Loading model from checkpoint...")
-        model.load_state_dict(torch.load(args.model_path))
-    evaluate(model, model, args.solver, split=args.split, debug=args.debug)
+    if args.new_model:
+        model = gen_projection_model(model, device)
     if args.debug:
-        retrieve(model)
+        pass
+        #model.load_state_dict(torch.load(args.model_path))
+
+    print(device)
+    print(model)
+
+    evaluate(model, model, args.solver, split=args.split, debug=args.debug, full_corpus=args.full_corpus)
+
+    #retrieve(model)
 
 
 if __name__ == "__main__":
@@ -265,8 +303,10 @@ if __name__ == "__main__":
                             (best general purpose model: all-mpnet-base-v2 (https://huggingface.co/sentence-transformers/all-mpnet-base-v2); \
                             best semantic search model: multi-qa-mpnet-base-dot-v1 (https://huggingface.co/sentence-transformers/multi-qa-mpnet-base-dot-v1))")
     parser.add_argument("--model-path", type=str, help="model weights (used for both premise and query models)")
-    parser.add_argument("--solver", type=str, default="bb", help="solver to use to retrieve premise chains\n- bf: brute-force\n- bb: branch-and-bound (approximate solution)")
+    parser.add_argument("--solver", type=str, default="bf", help="solver to use to retrieve premise chains\n- bf: brute-force\n- bb: branch-and-bound (approximate solution)")
     parser.add_argument("--split", type=str, default="test", help="data split to evaluate on (train, dev, test)")
+    parser.add_argument("--new-model", action="store_true")
+    parser.add_argument("--full-corpus", action="store_true")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 

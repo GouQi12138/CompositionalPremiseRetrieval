@@ -1,7 +1,7 @@
 from itertools import product
 
 # import miosqp
-from miosqp.solver import MIOSQP
+#from miosqp.solver import MIOSQP
 import numpy as np
 import scipy.sparse as spa
 from sklearn.metrics.pairwise import cosine_similarity
@@ -67,10 +67,11 @@ class FaissIndex:
 
 class Index:
 
-    def __init__(self, hypo_to_premises, premise_pool, model):
+    def __init__(self, hypo_to_premises, premise_pool, model, combinations=None):
 
         self._construct_index(hypo_to_premises, premise_pool, model)
-        self._construct_solver()
+        #self._construct_solver()
+        self._combinations = combinations
 
     def _construct_index(self, hypo_to_premises, premise_pool, model):
         # construct N x D (embedding_dim) premise table
@@ -206,12 +207,16 @@ class Index:
     def _brute_force_solve(self, query_embedding, debug=False):
 
         # Generate all possible combinations of premises
-        combinations = self._gen_all_binary_combinations_of_premises()  # 2^N x N
+        #print("Generate combination")
+        #combinations = self._gen_all_binary_combinations_of_premises()  # 2^N x N
+        combinations = self._combinations
 
         # Calculate all possible sums
+        #print("Calculate sum")
         sums = combinations @ self._index  # 2^N x D
 
         # Calcualte all possible differences
+        #print("Calculate difference")
         squared_diffs = ((np.expand_dims(query_embedding, axis=0) - sums)**2).sum(axis=1)  # 2^N
         if debug:
             print("Squared diffs:")
@@ -222,7 +227,9 @@ class Index:
     def _gen_similarity_scores_from_chains(self, combinations, scores, debug=False):
 
         # Rank the differences from least to greatest
+        #print("start sorting")
         sorted_idx = np.argsort(scores)
+        #print("finish sorting")
 
         # Iterate over the solutions from least difference to greatest difference until all premises have been iterated over
         # Rank premises from 1 to infinity, incrementing by 1
