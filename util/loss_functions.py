@@ -60,11 +60,11 @@ class CompositionalLoss(nn.Module):
         losses = F.mse_loss(rep_hypo, rep_path, reduction='none').sum(dim=1)
 
         if self.norm:
-            losses /= norm_hypo.sqrt()
+            losses /= norm_hypo #.sqrt()
 
         losses = losses.mean()  #.sum() / rep_hypo.shape[0]  # mean over batch  # equivalently
 
-        return losses * 0.1
+        return losses * 0.01
 
 
 

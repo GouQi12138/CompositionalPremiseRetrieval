@@ -1,0 +1,9 @@
+epoch,steps,MSE
+0,-1,"tensor(48.2553, device='cuda:0')"
+1,-1,"tensor(69.3146, device='cuda:0')"
+2,-1,"tensor(69.3146, device='cuda:0')"
+3,-1,"tensor(69.3146, device='cuda:0')"
+4,-1,"tensor(69.3146, device='cuda:0')"
+5,-1,"tensor(69.3146, device='cuda:0')"
+6,-1,"tensor(69.3146, device='cuda:0')"
+7,-1,"tensor(69.3146, device='cuda:0')"

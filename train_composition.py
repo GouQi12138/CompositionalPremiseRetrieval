@@ -89,7 +89,9 @@ def main(args):
 
     # Train
     model.fit(train_objectives=[(train_dataloader, train_loss), (reg_dataloader, reg_loss)],
-                    evaluator=evaluator,
+                    #evaluator=evaluator,
+                    checkpoint_path = args.save_dir,
+                    checkpoint_save_steps = 5000,
                     evaluation_steps=2000,
                     epochs=args.epochs,
                     #scheduler='WarmupConstant',
