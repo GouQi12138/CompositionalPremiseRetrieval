@@ -1,0 +1,1 @@
+Namespace(model='all-mpnet-base-v2', train_data='data/compositional/compositional_data_train_dict_adjacent_cross_join', val_data='data/compositional/compositional_data_dev_dict_adjacent_cross_join', batch_size=50, epochs=8, learning_rate=1e-06, save_dir='./checkpoints/compositional/train1/', new_model=True, debug=True, normalize_loss=False)
