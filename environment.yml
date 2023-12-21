@@ -107,15 +107,18 @@ dependencies:
   - zlib=1.2.13=h5eee18b_0
   - zstd=1.5.5=hc292b87_0
   - pip:
+      - bottle==0.12.25
       - chardet==5.2.0
       - charset-normalizer==3.3.2
       - click==8.1.7
       - contourpy==1.2.0
+      - cprofilev==1.0.7
       - cycler==0.12.1
       - fonttools==4.45.1
       - fsspec==2023.10.0
       - huggingface-hub==0.19.4
       - idna==3.6
+      - info-nce-pytorch==0.1.4
       - joblib==1.3.2
       - kiwisolver==1.4.5
       - markupsafe==2.1.3
@@ -159,6 +162,7 @@ dependencies:
       - triton==2.1.0
       - typing-extensions==4.8.0
       - tzdata==2023.3
+      - ujson==5.9.0
       - urllib3==2.1.0
       - wcwidth==0.2.12
 prefix: /home/anthony/anaconda3/envs/cpr

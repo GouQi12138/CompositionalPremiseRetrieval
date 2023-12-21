@@ -26,7 +26,6 @@ def check_map(gt_labels, scores):
     print(scores)
     print("Scores of gt_labels:")
     print(scores[0][np.nonzero(gt_labels[0].astype(int))])
-    print(scores[1][np.nonzero(gt_labels[1].astype(int))])
     print("Ranked scores")
     print(np.sort(scores)[:,-40:])
 
@@ -211,14 +210,11 @@ def evaluate(premise_model, query_model, solver, split="test", debug=False, full
     hypo_to_premises = load_target_dict(split)
     hypo_to_pool = load_pool_dict(split)
     premise_pool = load_premise_pool()
-    combinations = np.array([i for i in product(range(2), repeat=25) if sum(i)<=6])
-
-    if args.debug:
-        small_hypo_to_premises = {}
-        for k in list(hypo_to_premises.keys())[:3]:
-            small_hypo_to_premises[k] = hypo_to_premises[k]
-        hypo_to_premises = small_hypo_to_premises
-        premise_pool = []
+    
+    # max_chain_length = 6
+    # if debug:
+        # max_chain_length = 5
+    # combinations = np.array([i for i in product(range(2), repeat=25) if sum(i)<=5])
 
     if full_corpus:
         current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -235,7 +231,10 @@ def evaluate(premise_model, query_model, solver, split="test", debug=False, full
         # ------ limited pool ------
         if not full_corpus:
             premise_pool = list(hypo_to_pool[h])
-            index = Index(hypo_to_prem, premise_pool, premise_model, combinations[:, :len(premise_pool)])
+            max_chain_length = 6
+            if debug:
+                max_chain_length = 5
+            index = Index(hypo_to_prem, premise_pool, premise_model, max_chain_length=max_chain_length, debug=debug)
             faissIndex = FaissIndex(hypo_to_prem, premise_pool, premise_model)
         # --------------------------
         result = evaluate_model(query_model, index, hypo_to_prem, faissIndex, solver, debug=debug)
@@ -284,12 +283,11 @@ def main(args):
     model = SentenceTransformer(args.model).to(device)
     if args.new_model:
         model = gen_projection_model(model, device)
+    # if not args.debug:
+        # model.load_state_dict(torch.load(args.model_path))
     if args.debug:
-        pass
-        #model.load_state_dict(torch.load(args.model_path))
-
-    print(device)
-    print(model)
+        print(device)
+        print(model)
 
     evaluate(model, model, args.solver, split=args.split, debug=args.debug, full_corpus=args.full_corpus)
 
