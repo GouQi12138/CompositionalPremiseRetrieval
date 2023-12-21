@@ -1,4 +1,4 @@
 
-## !!! Duplicate hypothesis exists !!!
-### train: list of tuples [(hypo,[prems]), (hypo,[prems2]), ...]
-### test: dict over hypo  [hypo:[prems+prems2], ...]
+## Utilities for data inspection and processing
+### Premise pool
+### Training data for similarity/compositional search
