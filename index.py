@@ -5,6 +5,7 @@ from itertools import product
 import numpy as np
 import scipy.sparse as spa
 from sklearn.metrics.pairwise import cosine_similarity
+from sympy.utilities.iterables import multiset_permutations
 import torch
 
 import faiss
@@ -67,11 +68,15 @@ class FaissIndex:
 
 class Index:
 
-    def __init__(self, hypo_to_premises, premise_pool, model, combinations=None):
+    def __init__(self, hypo_to_premises, premise_pool, model, max_chain_length=None, debug=False):
+        """
+        max_chain_length is the maximum length of premise chains this index will return. If not specified, the maximum chain
+        length is equal to the total number of premises indexed.
+        """
 
         self._construct_index(hypo_to_premises, premise_pool, model)
+        self._construct_combinations(max_chain_length=max_chain_length, debug=debug)
         #self._construct_solver()
-        self._combinations = combinations
 
     def _construct_index(self, hypo_to_premises, premise_pool, model):
         # construct N x D (embedding_dim) premise table
@@ -110,6 +115,31 @@ class Index:
             self._premise_to_embedding[p] = embedding
         self._index = np.stack(self._index)
 
+    def _construct_combinations(self, max_chain_length=None, debug=False):
+        """
+        Returns a binary table representing all possible combinations of premises where each row is a possible combination.
+        Specify max_chain_length to limit the total number of premises in each combination (i.e. the sum of each row must
+        be less than or equal to max_chain_length).
+
+        Ex: For a premise pool of size 3 with max_chain_length of 2, returns
+            [[0 0 1]
+             [0 1 0]
+             [0 1 1]
+             [1 0 0]
+             [1 0 1]
+             [1 1 0]].
+            It excludes the combination [1 1 1] (and [0 0 0]).
+        """
+        num_premises = self._index.shape[0]
+        if not max_chain_length:
+            max_chain_length = num_premises
+        combinations = []
+        for n in range(1, max_chain_length+1):
+            binary_elements = [1] * n + [0] * (num_premises - n)
+            for perm in multiset_permutations(binary_elements):
+                combinations.append(perm)
+        self._combinations = np.array(combinations)
+
     def _construct_solver(self):
         """
         minimize    0.5 x' P x + q' x
@@ -124,20 +154,14 @@ class Index:
 
         Formulation in code below comes from solving least squares between a query embedding, q, and all of the premise embeddings.
         """
-        # self._miqp_solver = miosqp.MIOSQP()
         self._miqp_solver = MIOSQP()
         self.P = spa.csc_matrix(self._index @ self._index.T)
         dummy_q = np.zeros(self._index.shape[0])  # this will be updated at solving time
-        # import scipy as sp
-        # dummy_q = sp.randn(self._index.shape[0])
 
         # No constraints
         A = np.zeros((1, dummy_q.shape[0]))
         l = -1
         u = 1
-        # A = spa.random(1, dummy_q.shape[0])
-        # l = sp.rand(1) - 2
-        # u = sp.rand(1) + 2
 
         # Constrain every variable to be binary (0 or 1)
         i_idx = np.arange(0, self._index.shape[0], dtype=int)
@@ -157,13 +181,11 @@ class Index:
                             #   [0] max fractional part
                             'branching_rule': 0,
                             'verbose': False,
-                            # 'verbose': True,
                             'print_interval': 1}
         osqp_settings = {'eps_abs': 1e-03,
                          'eps_rel': 1e-03,
                          'eps_prim_inf': 1e-04,
                          'verbose': False}
-                        #  'verbose': True}
 
         self._miqp_solver.setup(self.P, dummy_q, A, l, u, i_idx, i_l, i_u, miosqp_settings, osqp_settings)
 
@@ -187,33 +209,16 @@ class Index:
         embeddings = np.stack(embeddings)
         return embeddings
 
-    def _gen_all_binary_combinations_of_premises(self):
-        """
-        Returns a binary table representing all possible ocmbinations of premises where each row is a possible combination.
-
-        Ex: For a premise pool of size 3, returns
-            [[0 0 0]
-             [0 0 1]
-             [0 1 0]
-             [0 1 1]
-             [1 0 0]
-             [1 0 1]
-             [1 1 0]
-             [1 1 1]]
-        """
-        combinations = [i for i in product(range(2), repeat=self._index.shape[0])]
-        return np.array(combinations)
-
     def _brute_force_solve(self, query_embedding, debug=False):
 
         # Generate all possible combinations of premises
         #print("Generate combination")
         #combinations = self._gen_all_binary_combinations_of_premises()  # 2^N x N
-        combinations = self._combinations
+        # combinations = self._combinations
 
         # Calculate all possible sums
         #print("Calculate sum")
-        sums = combinations @ self._index  # 2^N x D
+        sums = self._combinations @ self._index  # 2^N x D
 
         # Calcualte all possible differences
         #print("Calculate difference")
@@ -222,7 +227,7 @@ class Index:
             print("Squared diffs:")
             print(squared_diffs)
 
-        return combinations, squared_diffs
+        return squared_diffs
 
     def _gen_similarity_scores_from_chains(self, combinations, scores, debug=False):
 
@@ -230,6 +235,10 @@ class Index:
         #print("start sorting")
         sorted_idx = np.argsort(scores)
         #print("finish sorting")
+
+        # Pre-sort all premises by their squared norm in descending order
+        squared_norm = (self._index**2).sum(axis=1)
+        sorted_indices = np.argsort(squared_norm)[::-1]
 
         # Iterate over the solutions from least difference to greatest difference until all premises have been iterated over
         # Rank premises from 1 to infinity, incrementing by 1
@@ -239,10 +248,9 @@ class Index:
             binary_chain = combinations[i]
 
             # In each solution, organize premises from largest norm to smallest
-            premise_chain = self._index[binary_chain.astype(bool)]  # C (chain length) x D
-            squared_norm = (premise_chain**2).sum(axis=1)
-            sorted_chain_idx = np.argsort(squared_norm)[::-1]
-            for j in sorted_chain_idx:
+            sorted_premise_chain = binary_chain[sorted_indices]
+            premise_indices = sorted_indices[sorted_premise_chain.astype(bool)]  # C (chain length)
+            for j in premise_indices:
                 if premise_ranks[j] < 1:
                     premise_ranks[j] = rank
                     rank += 1
@@ -253,6 +261,8 @@ class Index:
         if debug:
             print("Premise ranks:")
             print(premise_ranks)
+
+        assert np.all(premise_ranks), "Not all premises were ranked. Results would be incorrect"
 
         # Convert ranks to similarity score
         similarity_scores = 1 - premise_ranks/rank
@@ -265,7 +275,8 @@ class Index:
         # Generate a relative score for every premise by solving the least squares problem between the query_embedding and the sum of arbitrary premise embeddings
 
         if solver == "bf":
-            combinations, scores = self._brute_force_solve(query_embedding, debug=debug)
+            combinations = self._combinations
+            scores = self._brute_force_solve(query_embedding, debug=debug)
         elif solver == "bb":
             # XXX: Give a guess
             self._miqp_solver.update_vectors(q=-self._index@query_embedding)
