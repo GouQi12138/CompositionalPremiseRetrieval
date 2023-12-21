@@ -54,35 +54,38 @@ def gen_labels_and_scores(hypo_to_premises, index, query_model, solver, debug=Fa
 ### EVALUATION FUNCTIONS ###
 
 
-def k_at_recall(premises, predictions, recall_level=1):
+def k_at_recall(one_hot_label, ranking, recall_level=1):
     # Recall is the number of relevant documents retrieved divided by the total number of relevant documents
     # Relevant documents are those that are in the ground truth
     # Retrieved documents are those that are in the top K samples
-    items_left = len(premises)
+    items_left = one_hot_label.sum()
     k = 0
-    for idx in predictions:
+    for idx in ranking:
         k += 1
-        if idx in premises:
+        if one_hot_label[idx]:
             items_left -= 1
         if items_left == 0:
             return k
     raise Exception("Not all premises are retrieved")
 
 
-def compute_precision_at_full_recall(hypo_to_premises, faissIndex, query_model=None):
+def compute_precision_at_full_recall(labels, scores):   #(hypo_to_premises, faissIndex, query_model=None):
     # Precision at full recall is the average of the precision values at each recall threshold
     # Recall threshold is the number of relevant documents
     # Precision is the number of relevant documents divided by the number of retrieved documents
     # Relevant documents are those that are in the ground truth
     # Retrieved documents are those that are in the top K samples
     precision_at_full_recall_list = []
-    for h in hypo_to_premises:
-        prem_label = faissIndex._hypo_to_indices[h]
-        prem_pred = faissIndex.retrieve_index(h, k=len(faissIndex._premise_pool), model=query_model)
+    for label, score in zip(labels, scores):
+        #prem_label = faissIndex._hypo_to_indices[h]
+        #prem_pred = faissIndex.retrieve_index(h, k=len(faissIndex._premise_pool), model=query_model)
 
-        num_relevant_docs = len(hypo_to_premises[h])
-        num_retrieved_docs = k_at_recall(prem_label, prem_pred)
+        ranking = (-score).argsort()
+
+        num_relevant_docs = label.sum() #len(hypo_to_premises[h])
+        num_retrieved_docs = k_at_recall(label, ranking)
         precision_at_full_recall_list.append(num_relevant_docs/num_retrieved_docs)
+
     precision_at_full_recall = sum(precision_at_full_recall_list)/len(precision_at_full_recall_list)
     return precision_at_full_recall
 
@@ -186,7 +189,7 @@ def evaluate_model(query_model, index, hypo_to_premises, faissIndex, solver, deb
         print("Scores")
         print(scores)
 
-    prec_full_rec = compute_precision_at_full_recall(hypo_to_premises, faissIndex, query_model)
+    prec_full_rec = compute_precision_at_full_recall(gt_labels, scores)#(hypo_to_premises, faissIndex, query_model)
 
     map_ = average_precision_score(gt_labels, scores, average="samples")  # Okay for scores to be relative rankings, will not estimate AP
     if debug:
